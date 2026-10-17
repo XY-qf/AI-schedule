@@ -1,0 +1,62 @@
+:root {
+  /* 分类与状态色 */
+  --color-course: #3b82f6;
+  --color-course-soft: #dbeafe;
+  --color-activity: #f59e0b;
+  --color-activity-soft: #fef3c7;
+  --color-life: #10b981;
+  --color-life-soft: #d1fae5;
+  --color-todo: #8b5cf6;
+  --color-todo-soft: #ede9fe;
+  --color-danger: #ef4444;
+  --color-danger-soft: #fee2e2;
+  --color-warning-soft: #fef9c3;
+  --color-today: #eff6ff;
+
+  /* 中性色 */
+  --color-bg: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-alt: #fafbfc;
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-text-faint: #9ca3af;
+
+  /* 字号层级（PRD 第 10 章） */
+  --fs-page-title: 18px;
+  --fs-section-title: 15px;
+  --fs-event-title: 14px;
+  --fs-body: 13px;
+  --fs-meta: 12px;
+
+  --font-ui: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', system-ui, sans-serif;
+
+  --radius: 6px;
+  --radius-sm: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --shadow-panel: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-dialog: 0 20px 48px rgba(15, 23, 42, 0.24);
+  --transition-fast: 150ms ease;
+}
+
+.category-course {
+  --category-color: var(--color-course);
+  --category-soft: var(--color-course-soft);
+}
+.category-activity {
+  --category-color: var(--color-activity);
+  --category-soft: var(--color-activity-soft);
+}
+.category-life {
+  --category-color: var(--color-life);
+  --category-soft: var(--color-life-soft);
+}
+.category-todo {
+  --category-color: var(--color-todo);
+  --category-soft: var(--color-todo-soft);
+}

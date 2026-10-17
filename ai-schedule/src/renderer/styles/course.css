@@ -1,0 +1,112 @@
+/* ---------- 课程表页 ---------- */
+.page__body--flush {
+  padding: 0;
+  overflow: auto;
+}
+
+.table-banner {
+  margin: 8px 12px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  color: #92400e;
+  font-size: var(--fs-meta);
+}
+
+.course-table {
+  display: grid;
+  grid-template-columns: 88px repeat(7, 1fr);
+  grid-auto-rows: 84px;
+  gap: 1px;
+  background: var(--color-border);
+  margin: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.course-table__row {
+  display: contents;
+}
+
+.course-table__corner,
+.course-table__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-alt);
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.course-table__period {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--color-surface-alt);
+  font-size: var(--fs-meta);
+}
+
+.course-table__period-name {
+  font-weight: 600;
+}
+
+.course-table__period-time {
+  color: var(--color-text-faint);
+  font-size: 11px;
+}
+
+.course-table__cell {
+  position: relative;
+  background: var(--color-surface);
+}
+
+.course-table__cell:hover {
+  background: var(--color-bg);
+}
+
+.course-cell {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 2px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-start;
+  padding: 4px 6px;
+  border: none;
+  border-left: 3px solid var(--color-course);
+  background: var(--color-course-soft);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.course-cell:hover {
+  filter: brightness(0.97);
+}
+
+.course-cell__title {
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.course-cell__meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}

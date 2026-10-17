@@ -1,0 +1,25 @@
+# 依赖与构建产物（体积大，不入库）
+node_modules/
+dist/
+dist-test/
+release/
+.pnpm-store/
+.electron-cache/
+.tmp-tests/
+
+# 诊断用的临时试验目录（含一份 Electron 44 运行时，很大）
+probe-electron/
+
+# 代码快照压缩包（与源码重复，且近 1 GB）
+*.zip
+
+# 日志与临时文件
+*.log
+*.tmp
+*.tsbuildinfo
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
