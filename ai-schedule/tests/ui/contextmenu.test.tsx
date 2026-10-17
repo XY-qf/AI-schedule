@@ -51,6 +51,7 @@ function makeApi(seed: EventItem[]): Ctx {
     rememberLocation: async () => undefined,
     openDataFolder: async () => undefined,
     getPlatform: async () => ({ electron: '', node: '' }),
+    listAllEvents: async () => events.map((item) => ({ ...item })),
     listEvents: async () => events.map((item) => ({ ...item })),
     createEvent: async (input) => {
       counter += 1

@@ -73,6 +73,7 @@ function makeCourseExceptionApi(initial: Exc[] = []): { api: PreloadApi; calls: 
     rememberLocation: async () => undefined,
     openDataFolder: async () => undefined,
     getPlatform: async () => ({ electron: '', node: '' }),
+    listAllEvents: async (): Promise<EventItem[]> => [],
     listEvents: async (): Promise<EventItem[]> => [],
     createEvent: async () => {
       throw new Error('未实现')

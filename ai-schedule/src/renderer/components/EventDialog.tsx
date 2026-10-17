@@ -61,7 +61,8 @@ interface FormState {
 const KIND_OPTIONS: Array<{ value: EventKind; label: string }> = [
   { value: 'timed', label: '时间段' },
   { value: 'allDay', label: '全天' },
-  { value: 'todo', label: '待办（只有截止时间）' },
+  { value: 'startOnly', label: '只有开始时间' },
+  { value: 'todo', label: '只有截止时间' },
 ]
 
 function plusOneHour(time: string): string {
@@ -98,6 +99,23 @@ function fromEventBase(event: EventItem): BaseForm {
       startTime: '09:00',
       endTime: '10:00',
       endDate: event.endAt ?? event.startAt ?? today,
+      dueDate: today,
+      dueTime: '23:59',
+      location: event.location ?? '',
+      people: event.people ?? '',
+      note: event.note ?? '',
+      done: event.done,
+    }
+  }
+  if (event.kind === 'startOnly') {
+    return {
+      title: event.title,
+      category: event.category,
+      kind: 'startOnly',
+      date: event.startAt?.slice(0, 10) ?? today,
+      startTime: event.startAt?.slice(11, 16) ?? '09:00',
+      endTime: '10:00',
+      endDate: today,
       dueDate: today,
       dueTime: '23:59',
       location: event.location ?? '',
@@ -174,6 +192,9 @@ function toInput(form: FormState, initial?: EventItem | null): EventInput {
   }
   if (form.kind === 'allDay') {
     return { ...base, kind: 'allDay', startAt: form.date, endAt: form.endDate }
+  }
+  if (form.kind === 'startOnly') {
+    return { ...base, kind: 'startOnly', startAt: `${form.date}T${form.startTime}`, endAt: null }
   }
   return { ...base, kind: 'todo', dueAt: `${form.dueDate}T${form.dueTime}` }
 }
@@ -322,6 +343,25 @@ export function EventDialog({
             />
           </div>
         </>
+      ) : null}
+
+      {form.kind === 'startOnly' ? (
+        <div className="form-row">
+          <TextField
+            id="event-date"
+            label="日期"
+            type="date"
+            value={form.date}
+            onChange={(event) => update('date', event.target.value)}
+          />
+          <TextField
+            id="event-start"
+            label="开始时间"
+            type="time"
+            value={form.startTime}
+            onChange={(event) => update('startTime', event.target.value)}
+          />
+        </div>
       ) : null}
 
       {form.kind === 'allDay' ? (

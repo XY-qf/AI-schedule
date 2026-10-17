@@ -10,15 +10,16 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   life: '个人生活',
 }
 
-/** 一条日程的时间形态：时间段 / 全天 / 待办（只有截止时间）。 */
-export const EVENT_KINDS = ['timed', 'allDay', 'todo'] as const
+/** 一条日程的时间形态：时间段 / 全天 / 只有开始 / 只有截止。 */
+export const EVENT_KINDS = ['timed', 'allDay', 'startOnly', 'todo'] as const
 
 export type EventKind = (typeof EVENT_KINDS)[number]
 
 export const EVENT_KIND_LABEL: Record<EventKind, string> = {
   timed: '时间段',
   allDay: '全天',
-  todo: '待办',
+  startOnly: '只有开始时间',
+  todo: '只有截止时间',
 }
 
 export function isCategory(value: unknown): value is Category {

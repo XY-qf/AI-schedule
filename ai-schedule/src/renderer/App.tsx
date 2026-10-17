@@ -175,7 +175,9 @@ export function App({
 
   const refresh = useCallback(async () => {
     try {
-      const list = await client.listEvents(range.start, range.end)
+      // 必须取全部：重复日程的母事件可能早在几个月前，未来的待办也不在当周范围里，
+      // 只按视图范围取会导致「重复日程只显示一周」「待办不显示」。
+      const list = await client.listAllEvents()
       setEvents(list)
     } catch {
       setEvents([])
@@ -362,6 +364,21 @@ export function App({
     setSelectedId(null)
   }
 
+  /** 主进程菜单 / 托盘触发的动作 */
+  useEffect(() => {
+    if (typeof client.onMenuAction !== 'function') return
+    client.onMenuAction((action) => {
+      if (action === 'new') openCreate()
+      else if (action === 'today') {
+        setAnchor(new Date())
+        setSelectedId(null)
+      } else if (action === 'prev') move(-1)
+      else if (action === 'next') move(1)
+      else if (action === 'settings') setPage('settings')
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, view, today])
+
   const openCreate = (defaults?: Partial<DialogState['defaults']>): void => {
     setDialog({
       mode: 'create',
@@ -447,6 +464,39 @@ export function App({
     await client.updateRecurrence(master.recurrenceId, { untilDate: previousDay })
   }
 
+  /**
+   * 把「这一次及以后」拆成两个系列。
+   *
+   * 原实现让新日程复用老规则，老规则的截止日又被截断到前一天，
+   * 于是新系列一次都展开不出来——日程直接消失（用户反馈第 11 条）。
+   * 这里给新系列单独建一条规则，截止日沿用原来的。
+   */
+  const splitSeriesFollowing = async (
+    master: EventItem,
+    originalDate: string,
+    input: EventInput,
+  ): Promise<void> => {
+    const oldRule = recurrences.find((item) => item.id === master.recurrenceId) ?? null
+    const isFirstOccurrence = (master.startAt ?? '').slice(0, 10) >= originalDate
+
+    if (isFirstOccurrence || !master.recurrenceId) {
+      // 从第一次就改，等于改整个系列
+      await client.updateEvent(master.id, input)
+      return
+    }
+
+    await cutSeriesAt(master, originalDate)
+    const newRule = await client.createRecurrence({
+      freq: oldRule?.freq ?? 'weekly',
+      intervalValue: oldRule?.intervalValue ?? null,
+      intervalUnit: oldRule?.intervalUnit ?? null,
+      byWeekdays: oldRule?.byWeekdays ?? null,
+      untilDate: oldRule?.untilDate ?? null,
+      maxCount: null,
+    })
+    await client.createEvent({ ...input, recurrenceId: newRule.id })
+  }
+
   /** 三选一之后就按选择落地：仅这一次 / 这一次及以后 / 全部。 */
   const applyScope = async (scope: 'single' | 'following' | 'all'): Promise<void> => {
     const pending = pendingScope
@@ -486,8 +536,7 @@ export function App({
         } else if (scope === 'all') {
           await client.updateEvent(pending.masterId, pending.input)
         } else {
-          await cutSeriesAt(master, pending.originalDate)
-          await client.createEvent({ ...pending.input, recurrenceId: master.recurrenceId })
+          await splitSeriesFollowing(master, pending.originalDate, pending.input)
         }
         setToast({ message: '已保存' })
       }
@@ -537,23 +586,73 @@ export function App({
     }
   }
 
+  /**
+   * 统一的「改时间」入口：普通日程直接改，课程块写调课例外，
+   * 重复日程的某一次写改期例外——否则拖到课程块或重复块上会毫无反应（用户反馈第 5 条）。
+   */
+  const applyReschedule = async (
+    target: EventItem,
+    nextStart: string | null,
+    nextEnd: string | null,
+  ): Promise<{ undo?: () => Promise<void> }> => {
+    const parts = target.id.split(':')
+    if (parts[0] === 'course' && parts.length >= 3) {
+      const courseId = parts[1]
+      const originalDate = parts.slice(2).join(':')
+      await client.setCourseException({
+        courseId,
+        originalDate,
+        action: 'moved',
+        startAt: nextStart,
+        endAt: nextEnd,
+      })
+      await reloadCourseExceptions()
+      return {
+        undo: async () => {
+          await client.clearCourseException(courseId, originalDate)
+        },
+      }
+    }
+
+    const occurrence = parseOccurrenceId(target.id)
+    if (occurrence) {
+      const saved = await client.upsertEventException({
+        seriesId: occurrence.masterId,
+        originalDate: occurrence.originalDate,
+        action: 'modified',
+        startAt: nextStart,
+        endAt: nextEnd,
+      })
+      return {
+        undo: async () => {
+          await client.deleteEventException(saved.id)
+        },
+      }
+    }
+
+    await client.updateEvent(target.id, { startAt: nextStart, endAt: nextEnd })
+    return {
+      undo: async () => {
+        await client.updateEvent(target.id, { startAt: target.startAt, endAt: target.endAt })
+      },
+    }
+  }
+
   /** 编辑态拖动日程块：整体平移若干分钟（可撤销）。 */
   const handleMoveEvent = async (id: string, deltaMinutes: number): Promise<void> => {
-    const target = events.find((event) => event.id === id)
-    if (!target?.startAt || !target.endAt) return
-    const before = { startAt: target.startAt, endAt: target.endAt }
+    const target = allEvents.find((event) => event.id === id)
+    if (!target?.startAt) {
+      setToast({ message: '这条日程不能拖动' })
+      return
+    }
     try {
-      await client.updateEvent(id, {
-        startAt: shiftDateTimeString(before.startAt, deltaMinutes),
-        endAt: shiftDateTimeString(before.endAt, deltaMinutes),
-      })
+      const { undo } = await applyReschedule(
+        target,
+        shiftDateTimeString(target.startAt, deltaMinutes),
+        target.endAt ? shiftDateTimeString(target.endAt, deltaMinutes) : null,
+      )
       await refresh()
-      setToast({
-        message: `已移动「${target.title}」`,
-        undo: async () => {
-          await client.updateEvent(id, before)
-        },
-      })
+      setToast({ message: `已移动「${target.title}」`, undo })
     } catch (error) {
       setToast({ message: `移动失败：${String((error as Error).message ?? error)}` })
     }
@@ -561,21 +660,19 @@ export function App({
 
   /** 编辑态拉下边缘：只改结束时间（可撤销）。 */
   const handleResizeEvent = async (id: string, deltaMinutes: number): Promise<void> => {
-    const target = events.find((event) => event.id === id)
-    if (!target?.endAt) return
-    const before = { startAt: target.startAt, endAt: target.endAt }
+    const target = allEvents.find((event) => event.id === id)
+    if (!target?.endAt) {
+      setToast({ message: '这条日程不能改时长' })
+      return
+    }
     try {
-      await client.updateEvent(id, {
-        startAt: before.startAt,
-        endAt: shiftDateTimeString(before.endAt, deltaMinutes),
-      })
+      const { undo } = await applyReschedule(
+        target,
+        target.startAt,
+        shiftDateTimeString(target.endAt, deltaMinutes),
+      )
       await refresh()
-      setToast({
-        message: `已调整「${target.title}」时长`,
-        undo: async () => {
-          await client.updateEvent(id, before)
-        },
-      })
+      setToast({ message: `已调整「${target.title}」时长`, undo })
     } catch (error) {
       setToast({ message: `调整失败：${String((error as Error).message ?? error)}` })
     }

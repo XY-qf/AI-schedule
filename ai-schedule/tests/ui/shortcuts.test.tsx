@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from '../helpers/expect'
+import { describe, expect, it } from '../helpers/expect'
 import { cleanup, fireEvent, render, screen } from '../helpers/ui'
 import { App } from '../../src/renderer/App'
 import { parseDate } from '../../src/shared/date'
@@ -39,6 +39,7 @@ function makeApi(): PreloadApi {
     rememberLocation: async () => undefined,
     openDataFolder: async () => undefined,
     getPlatform: async () => ({ electron: '', node: '' }),
+    listAllEvents: async () => events,
     listEvents: async () => events,
     createEvent: async (input) => {
       const created: EventItem = {

@@ -29,3 +29,32 @@ export function describeCourseTime(course: Course, periods: Period[]): string {
   }
   return times ? `${times.startTime}–${times.endTime}` : '时间未填'
 }
+
+/**
+ * 这门课在作息表上占第几节到第几节。
+ *
+ * 节次模式直接用录入的节次；按时间录入的课没有节次，
+ * 就按时间区间与每节课的重叠情况换算出来——否则它在课程表里一格都不占，
+ * 只剩日历里能看到（用户反馈第 8 条）。
+ */
+export function coursePeriodSpan(
+  course: Course,
+  periods: Period[],
+): { from: number; to: number } | null {
+  if (course.timeMode === 'period') {
+    const from = course.startPeriod ?? 0
+    const to = course.endPeriod ?? from
+    return from >= 1 ? { from, to: Math.max(from, to) } : null
+  }
+
+  const times = courseTimes(course, periods)
+  if (!times) return null
+
+  const covered = periods
+    .filter((period) => period.startTime < times.endTime && period.endTime > times.startTime)
+    .map((period) => period.orderIndex)
+    .sort((a, b) => a - b)
+
+  if (covered.length === 0) return null
+  return { from: covered[0], to: covered[covered.length - 1] }
+}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Course, Period, Semester } from '../../shared/entities'
-import { ODD_EVEN_LABEL } from '../../shared/courseUi'
+import { ODD_EVEN_LABEL, coursePeriodSpan } from '../../shared/courseUi'
 import { formatChineseDate, parseDate, sameDay, semesterWeekIndex } from '../../shared/date'
 import { WEEKDAY_SHORT } from './weekdayLabels'
 
@@ -93,14 +93,19 @@ export function CourseTablePage({
                     <span className="course-table__period-time">{period.startTime}</span>
                   </div>
                   {[1, 2, 3, 4, 5, 6, 7].map((weekday) => {
-                    const cellCourses = courses.filter(
-                      (course) =>
-                        course.weekday === weekday &&
-                        (course.startPeriod ?? 0) <= period.orderIndex &&
-                        (course.endPeriod ?? 0) >= period.orderIndex,
-                    )
-                    const isFirstRowOfCourse = cellCourses.some(
-                      (course) => (course.startPeriod ?? 0) === period.orderIndex,
+                    const spans = courses
+                      .filter((course) => course.weekday === weekday)
+                      .map((course) => ({ course, span: coursePeriodSpan(course, periods) }))
+                    const cellCourses = spans
+                      .filter(
+                        (item) =>
+                          item.span !== null &&
+                          item.span.from <= period.orderIndex &&
+                          item.span.to >= period.orderIndex,
+                      )
+                      .map((item) => item.course)
+                    const isFirstRowOfCourse = spans.some(
+                      (item) => item.span !== null && item.span.from === period.orderIndex,
                     )
                     return (
                       <div
@@ -110,9 +115,12 @@ export function CourseTablePage({
                         onDoubleClick={() => onCreateCourse(weekday, period.orderIndex)}
                       >
                         {cellCourses
-                          .filter((course) => course.startPeriod === period.orderIndex)
+                          .filter(
+                            (course) => coursePeriodSpan(course, periods)?.from === period.orderIndex,
+                          )
                           .map((course) => {
-                            const span = (course.endPeriod ?? period.orderIndex) - (course.startPeriod ?? period.orderIndex) + 1
+                            const computed = coursePeriodSpan(course, periods)
+                            const span = computed ? computed.to - computed.from + 1 : 1
                             return (
                               <button
                                 key={course.id}

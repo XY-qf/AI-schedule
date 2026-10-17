@@ -14,6 +14,7 @@ const fallback: PreloadApi = {
   openDataFolder: async () => undefined,
   getPlatform: async () => ({ electron: '—', node: '—' }),
   listEvents: async () => [],
+  listAllEvents: async () => [],
   createEvent: async () => {
     throw new Error('当前环境不可保存日程')
   },
@@ -53,6 +54,7 @@ const fallback: PreloadApi = {
   getPreferences: async () => ({}),
   setPreference: async () => undefined,
   getAppInfo: async () => ({ version: '1.0.0', dataDir: '' }),
+  onMenuAction: () => undefined,
   listRecurrences: async () => [],
   createRecurrence: async () => {
     throw new Error('当前环境不可保存重复规则')

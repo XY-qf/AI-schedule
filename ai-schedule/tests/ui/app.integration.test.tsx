@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from '../helpers/expect'
+import { describe, expect, it } from '../helpers/expect'
 import { cleanup, fireEvent, render, screen } from '../helpers/ui'
 import { App } from '../../src/renderer/App'
 import { DetailPanel } from '../../src/renderer/components/DetailPanel'
@@ -53,6 +53,10 @@ function makeApi(initial: EventItem[] = []): { api: PreloadApi; state: FakeState
     rememberLocation: async () => undefined,
     openDataFolder: async () => undefined,
     getPlatform: async () => ({ electron: '', node: '' }),
+    listAllEvents: async () => {
+      state.calls.push('listAll')
+      return state.events.map((item) => ({ ...item }))
+    },
     listEvents: async (start, end) => {
       state.calls.push(`list:${start}:${end}`)
       return state.events.filter((event) => {
@@ -105,9 +109,10 @@ async function renderApp(events: EventItem[] = []) {
 }
 
 describe('日历页 · 数据加载', () => {
-  it('按当前周的范围请求日程', async () => {
+  it('启动时取全部日程，而不是只取当周范围', async () => {
+    // 只取当周会导致：重复日程滚出本周后消失、未来的待办查不到（用户反馈 10、12）
     const state = await renderApp()
-    expect(state.calls[0]).toBe('list:2026-03-02:2026-03-08')
+    expect(state.calls).toContain('listAll')
     cleanup()
   })
 

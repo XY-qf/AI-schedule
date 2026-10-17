@@ -19,8 +19,17 @@ export function pad2Safe(n: number): string {
   return pad2(n)
 }
 
+/** 允许的年份范围：超出这个范围的输入一定是误输入（用户反馈第 9 条）。 */
+export const MIN_YEAR = 1900
+export const MAX_YEAR = 2100
+
+export function isValidYear(year: number): boolean {
+  return Number.isInteger(year) && year >= MIN_YEAR && year <= MAX_YEAR
+}
+
 export function isValidDateString(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  if (!isValidYear(Number(value.slice(0, 4)))) return false
   const d = parseDate(value)
   return formatDate(d) === value
 }

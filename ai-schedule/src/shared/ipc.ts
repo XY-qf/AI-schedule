@@ -67,6 +67,8 @@ export interface PreloadApi {
   getPlatform(): Promise<{ electron: string; node: string }>
   /** 取与 [startDate, endDate] 有交集的日程 */
   listEvents(startDate: string, endDate: string): Promise<EventItem[]>
+  /** 取全部日程（重复日程的母事件、未来待办都要拿到，不能只看当前视图范围） */
+  listAllEvents(): Promise<EventItem[]>
   createEvent(input: EventInput): Promise<EventItem>
   updateEvent(id: string, patch: Partial<EventInput> & { done?: boolean }): Promise<EventItem>
   deleteEvent(id: string): Promise<void>
@@ -119,6 +121,8 @@ export interface PreloadApi {
   getPreferences(): Promise<Record<string, string>>
   setPreference(key: string, value: string): Promise<void>
   getAppInfo(): Promise<{ version: string; dataDir: string }>
+  /** 主进程菜单触发的动作（新建 / 今天 / 上一页 / 下一页 / 设置） */
+  onMenuAction(handler: (action: string) => void): void
 
   /* ---- 重复规则与例外 ---- */
   listRecurrences(): Promise<RecRule[]>

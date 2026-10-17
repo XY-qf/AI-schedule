@@ -111,6 +111,7 @@ describe('首次使用引导', () => {
       rememberLocation: async () => undefined,
       openDataFolder: async () => undefined,
       getPlatform: async () => ({ electron: '', node: '' }),
+      listAllEvents: async () => events,
       listEvents: async () => events,
       createEvent: async () => {
         throw new Error('未实现')
@@ -188,6 +189,7 @@ describe('设置页接入应用', () => {
       rememberLocation: async () => undefined,
       openDataFolder: async () => undefined,
       getPlatform: async () => ({ electron: '', node: '' }),
+      listAllEvents: async () => [],
       listEvents: async () => [],
       createEvent: async () => {
         throw new Error('未实现')

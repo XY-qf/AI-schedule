@@ -1,8 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { BackupService } from './services/backup'
 import { checkExecutablePath } from './pathGuard'
+import { buildMenuTemplate } from './appMenu'
 import {
   CoursesRepository,
   EventsRepository,
@@ -196,6 +197,7 @@ function createMainWindow(state: RuntimeState): BrowserWindow {
   })
 
   if (bounds.maximized) win.maximize()
+  mainWindow = win
   win.once('ready-to-show', () => win.show())
 
   if (DEV_SERVER_URL) {
@@ -222,7 +224,14 @@ function createMainWindow(state: RuntimeState): BrowserWindow {
     })
   }
 
-  win.on('close', persist)
+  win.on('close', (event) => {
+    persist()
+    // 点叉号只隐藏窗口，程序继续在托盘里运行，为后续的提醒功能留出空间（反馈第 6 条）
+    if (!isQuitting) {
+      event.preventDefault()
+      win.hide()
+    }
+  })
 
   return win
 }
@@ -262,6 +271,7 @@ function registerIpc(): void {
     return requireEvents().listInRange(startDate, endDate)
   })
 
+  ipcMain.handle('events:listAll', () => requireEvents().list())
   ipcMain.handle('events:create', (_event, input: EventInput) => requireEvents().create(input))
 
   ipcMain.handle('events:update', (_event, id: string, patch: Partial<EventInput> & { done?: boolean }) =>
@@ -386,17 +396,45 @@ function registerIpc(): void {
   })
 }
 
+// ---------------------------------------------------------------------------
+// 单实例：重复点图标不应再开一个新窗（用户反馈第 3 条）
+// ---------------------------------------------------------------------------
+let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+let isQuitting = false
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = mainWindow ?? BrowserWindow.getAllWindows()[0] ?? null
+    if (!win) {
+      if (runtime) mainWindow = createMainWindow(runtime)
+      return
+    }
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  })
+}
+
 app.whenReady().then(async () => {
   runtime = await bootstrap()
   registerIpc()
   setupBackup(runtime)
   const win = createMainWindow(runtime)
+  setupMenu(win)
+  setupTray(win)
   if (process.env.AI_SCHEDULE_SELFTEST === '1') void runSelfTest(win)
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0 && runtime) {
-      createMainWindow(runtime)
+    const existing = BrowserWindow.getAllWindows()[0]
+    if (existing) {
+      existing.show()
+      existing.focus()
+      return
     }
+    if (runtime) mainWindow = createMainWindow(runtime)
   })
 })
 
@@ -436,25 +474,112 @@ async function runSelfTest(win: BrowserWindow): Promise<void> {
   const timer = setTimeout(() => finish({ ok: false, reason: '等待界面加载超时' }, 1), 25000)
 
   win.webContents.on('did-finish-load', () => {
-    void win.webContents
-      .executeJavaScript(
-        `(() => ({
-          navItems: document.querySelectorAll('.app-nav .nav-item').length,
-          toolbarTitle: (document.querySelector('[data-testid="toolbar-title"]') || {}).textContent || null,
-          statusText: (document.querySelector('.app-status') || {}).textContent || null,
-          hasApi: !!(window.api && typeof window.api.getStatus === 'function'),
-          rootChildren: (document.getElementById('root') || {}).childElementCount || 0
-        }))()`,
-      )
-      .then((result) => {
-        clearTimeout(timer)
-        finish({ ok: true, result, dataFilePath: runtime?.paths.dbFile ?? null }, 0)
-      })
-      .catch((error: unknown) => {
+    const probe = `(() => ({
+      navItems: document.querySelectorAll('.app-nav .nav-item').length,
+      toolbarTitle: (document.querySelector('[data-testid="toolbar-title"]') || {}).textContent || null,
+      statusText: (document.querySelector('.app-status') || {}).textContent || null,
+      hasApi: !!(window.api && typeof window.api.getStatus === 'function'),
+      rootChildren: (document.getElementById('root') || {}).childElementCount || 0,
+      bodyText: (document.body.textContent || '').replace(/\\s+/g, ' ').slice(0, 160)
+    }))()`
+
+    // 界面是异步渲染的，did-finish-load 时可能还是空的，这里轮询到画出来为止
+    const startedAt = Date.now()
+    const poll = async (): Promise<void> => {
+      try {
+        const result = (await win.webContents.executeJavaScript(probe)) as {
+          navItems: number
+          hasApi: boolean
+        }
+        const ready = result.navItems > 0 && result.hasApi
+        if (ready || Date.now() - startedAt > 15000) {
+          clearTimeout(timer)
+          finish({ ok: ready, result, dataFilePath: runtime?.paths.dbFile ?? null }, ready ? 0 : 1)
+          return
+        }
+        setTimeout(() => void poll(), 300)
+      } catch (error) {
         clearTimeout(timer)
         finish({ ok: false, reason: String(error) }, 1)
-      })
+      }
+    }
+    void poll()
   })
+}
+
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
+/** 托盘：关窗后还能从托盘重新打开或真正退出。 */
+function setupTray(win: BrowserWindow): void {
+  try {
+    const iconPath = path.join(__dirname, '..', '..', 'resources', 'icon.ico')
+    const image = nativeImage.createFromPath(iconPath)
+    tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image)
+    tray.setToolTip('AI 日程')
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        {
+          label: '显示主窗口',
+          click: () => {
+            win.show()
+            win.focus()
+          },
+        },
+        { label: '新建日程', click: () => win.webContents.send('menu:action', 'new') },
+        { type: 'separator' },
+        {
+          label: '退出',
+          click: () => {
+            isQuitting = true
+            app.quit()
+          },
+        },
+      ]),
+    )
+    tray.on('click', () => {
+      win.show()
+      win.focus()
+    })
+  } catch (error) {
+    console.warn('托盘创建失败', error)
+  }
+}
+
+/** 全中文的应用菜单（反馈第 2 条）。 */
+function setupMenu(win: BrowserWindow): void {
+  const send = (action: string): void => {
+    win.show()
+    win.focus()
+    win.webContents.send('menu:action', action)
+  }
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(
+      buildMenuTemplate({
+        onNewEvent: () => send('new'),
+        onToday: () => send('today'),
+        onPrev: () => send('prev'),
+        onNext: () => send('next'),
+        onOpenSettings: () => send('settings'),
+        onQuit: () => {
+          isQuitting = true
+          app.quit()
+        },
+        onAbout: () => {
+          dialog.showMessageBox(win, {
+            type: 'info',
+            title: '关于 AI 日程',
+            message: 'AI 日程（个人版）1.0.0',
+            detail: '本地存储，不联网。数据保存在「文档\\AI日程」目录。',
+            buttons: ['好'],
+          })
+        },
+        onReload: () => win.reload(),
+        onToggleDevTools: () => win.webContents.toggleDevTools(),
+      }),
+    ),
+  )
 }
 
 app.on('window-all-closed', () => {

@@ -1,62 +1,88 @@
 :root {
-  /* 分类与状态色 */
-  --color-course: #3b82f6;
-  --color-course-soft: #dbeafe;
-  --color-activity: #f59e0b;
-  --color-activity-soft: #fef3c7;
-  --color-life: #10b981;
-  --color-life-soft: #d1fae5;
-  --color-todo: #8b5cf6;
-  --color-todo-soft: #ede9fe;
-  --color-danger: #ef4444;
-  --color-danger-soft: #fee2e2;
-  --color-warning-soft: #fef9c3;
-  --color-today: #eff6ff;
+  /* ---------- 分类与状态色 ---------- */
+  --color-course: #3b6ef0;
+  --color-course-soft: #e8efff;
+  --color-course-deep: #24479b;
+  --color-activity: #e08a1e;
+  --color-activity-soft: #fdf1dd;
+  --color-activity-deep: #8a5209;
+  --color-life: #12a06f;
+  --color-life-soft: #e2f6ef;
+  --color-life-deep: #0a6344;
+  --color-todo: #7c5cf0;
+  --color-todo-soft: #efeaff;
+  --color-todo-deep: #46309c;
+  --color-danger: #e5484d;
+  --color-danger-soft: #fdeceb;
+  --color-warning-soft: #fdf6dd;
+  --color-today: #f2f6ff;
 
-  /* 中性色 */
-  --color-bg: #f7f8fa;
+  /* ---------- 中性色 ---------- */
+  --color-bg: #f4f5f8;
   --color-surface: #ffffff;
-  --color-surface-alt: #fafbfc;
-  --color-border: #e5e7eb;
-  --color-border-strong: #d1d5db;
-  --color-text: #1f2937;
-  --color-text-muted: #6b7280;
-  --color-text-faint: #9ca3af;
+  --color-surface-alt: #f8f9fc;
+  --color-surface-sunken: #eef0f5;
+  --color-border: #e6e8ef;
+  --color-border-strong: #d3d7e2;
+  --color-text: #1b1f2a;
+  --color-text-muted: #626b7d;
+  --color-text-faint: #98a0b1;
+  --color-accent-ink: #ffffff;
 
-  /* 字号层级（PRD 第 10 章） */
-  --fs-page-title: 18px;
+  /* ---------- 字号层级（PRD 第 10 章） ---------- */
+  --fs-page-title: 20px;
   --fs-section-title: 15px;
-  --fs-event-title: 14px;
-  --fs-body: 13px;
+  --fs-event-title: 13.5px;
+  --fs-body: 13.5px;
   --fs-meta: 12px;
+  --fs-tiny: 11px;
+  --lh-tight: 1.35;
+  --lh-body: 1.6;
 
-  --font-ui: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', system-ui, sans-serif;
+  --font-ui: 'Microsoft YaHei UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Segoe UI', system-ui,
+    sans-serif;
+  --font-num: 'Segoe UI', 'Microsoft YaHei UI', system-ui, sans-serif;
 
-  --radius: 6px;
-  --radius-sm: 4px;
+  /* ---------- 形状与间距 ---------- */
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-pill: 999px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
-  --shadow-panel: 0 8px 24px rgba(15, 23, 42, 0.12);
-  --shadow-dialog: 0 20px 48px rgba(15, 23, 42, 0.24);
-  --transition-fast: 150ms ease;
+  --space-6: 32px;
+
+  /* ---------- 阴影：三级层次 ---------- */
+  --shadow-hairline: 0 1px 2px rgba(24, 30, 48, 0.05);
+  --shadow-panel: 0 10px 30px rgba(24, 30, 48, 0.1);
+  --shadow-dialog: 0 24px 60px rgba(24, 30, 48, 0.22);
+  --shadow-pop: 0 6px 18px rgba(24, 30, 48, 0.12);
+
+  --transition-fast: 140ms ease;
+  --transition-base: 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --ring: 0 0 0 3px rgba(59, 110, 240, 0.22);
 }
 
 .category-course {
   --category-color: var(--color-course);
   --category-soft: var(--color-course-soft);
+  --category-deep: var(--color-course-deep);
 }
 .category-activity {
   --category-color: var(--color-activity);
   --category-soft: var(--color-activity-soft);
+  --category-deep: var(--color-activity-deep);
 }
 .category-life {
   --category-color: var(--color-life);
   --category-soft: var(--color-life-soft);
+  --category-deep: var(--color-life-deep);
 }
 .category-todo {
   --category-color: var(--color-todo);
   --category-soft: var(--color-todo-soft);
+  --category-deep: var(--color-todo-deep);
 }

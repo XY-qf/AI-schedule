@@ -27,6 +27,7 @@ export const EMPTY_COURSE_API: Pick<
   | 'getPreferences'
   | 'setPreference'
   | 'getAppInfo'
+  | 'onMenuAction'
   | 'listRecurrences'
   | 'createRecurrence'
   | 'updateRecurrence'
@@ -65,6 +66,7 @@ export const EMPTY_COURSE_API: Pick<
   getPreferences: async () => ({}),
   setPreference: async () => undefined,
   getAppInfo: async () => ({ version: '1.0.0', dataDir: '' }),
+  onMenuAction: () => undefined,
   listRecurrences: async () => [],
   createRecurrence: async () => {
     throw new Error('测试桩未实现')

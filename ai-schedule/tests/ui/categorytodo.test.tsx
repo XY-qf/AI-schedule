@@ -245,6 +245,7 @@ describe('三个页面接入应用', () => {
       rememberLocation: async () => undefined,
       openDataFolder: async () => undefined,
       getPlatform: async () => ({ electron: '', node: '' }),
+      listAllEvents: async () => events.map((item) => ({ ...item })),
       listEvents: async () => events.map((item) => ({ ...item })),
       createEvent: async () => {
         throw new Error('未实现')

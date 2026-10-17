@@ -135,6 +135,10 @@ export function layoutAllDay(events: EventItem[], dates: string[]): AllDayChip[]
   const chips: AllDayChip[] = []
 
   const spanOf = (event: EventItem): { start: string; end: string } | null => {
+    if (event.kind === 'startOnly') {
+      const day = event.startAt ? event.startAt.slice(0, 10) : null
+      return day ? { start: day, end: day } : null
+    }
     if (event.kind === 'todo') {
       const day = event.dueAt ? event.dueAt.slice(0, 10) : null
       return day ? { start: day, end: day } : null
@@ -144,7 +148,7 @@ export function layoutAllDay(events: EventItem[], dates: string[]): AllDayChip[]
   }
 
   for (const event of events) {
-    if (event.kind !== 'allDay' && event.kind !== 'todo') continue
+    if (event.kind !== 'allDay' && event.kind !== 'todo' && event.kind !== 'startOnly') continue
     const span = spanOf(event)
     if (!span) continue
     if (span.start > last || span.end < first) continue
@@ -165,7 +169,8 @@ export function layoutAllDay(events: EventItem[], dates: string[]): AllDayChip[]
     const spanA = a.endCol - a.startCol
     const spanB = b.endCol - b.startCol
     if (spanA !== spanB) return spanB - spanA
-    if (a.event.kind !== b.event.kind) return a.event.kind === 'allDay' ? -1 : 1
+    const order: Record<string, number> = { allDay: 0, startOnly: 1, todo: 2 }
+    if (a.event.kind !== b.event.kind) return (order[a.event.kind] ?? 3) - (order[b.event.kind] ?? 3)
     if (a.startCol !== b.startCol) return a.startCol - b.startCol
     return a.event.title.localeCompare(b.event.title)
   })

@@ -167,6 +167,11 @@ export function validateEventInput(input: EventInput): string[] {
     } else if (endAt < startAt) {
       errors.push('结束日期不能早于开始日期')
     }
+  } else if (input.kind === 'startOnly') {
+    const { startAt } = input
+    if (!startAt || !isValidDateTimeString(startAt)) {
+      errors.push('请选择开始时间')
+    }
   } else if (input.kind === 'todo') {
     const { dueAt } = input
     if (!dueAt) {

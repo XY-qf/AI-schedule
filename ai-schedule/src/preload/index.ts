@@ -20,6 +20,7 @@ const api: PreloadApi = {
   getPlatform: (): Promise<{ electron: string; node: string }> =>
     ipcRenderer.invoke('app:platform'),
 
+  listAllEvents: (): Promise<EventItem[]> => ipcRenderer.invoke('events:listAll'),
   listEvents: (startDate: string, endDate: string): Promise<EventItem[]> =>
     ipcRenderer.invoke('events:list', startDate, endDate),
   createEvent: (input: EventInput): Promise<EventItem> => ipcRenderer.invoke('events:create', input),
@@ -59,6 +60,9 @@ const api: PreloadApi = {
   getPreferences: () => ipcRenderer.invoke('prefs:all'),
   setPreference: (key: string, value: string) => ipcRenderer.invoke('prefs:set', key, value),
   getAppInfo: () => ipcRenderer.invoke('app:info'),
+  onMenuAction: (handler: (action: string) => void) => {
+    ipcRenderer.on('menu:action', (_event, action: string) => handler(action))
+  },
 
   listRecurrences: () => ipcRenderer.invoke('recurrences:list'),
   createRecurrence: (input: RecurrencePayload) => ipcRenderer.invoke('recurrences:create', input),

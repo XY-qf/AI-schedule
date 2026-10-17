@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from '../helpers/expect'
+import { describe, expect, it } from '../helpers/expect'
 import { cleanup, fireEvent, render, screen, waitFor } from '../helpers/ui'
 import type { EventItem } from '../../src/shared/entities'
 import type { PreloadApi } from '../../src/shared/ipc'
@@ -130,6 +130,7 @@ describe('拖动后可以撤销', () => {
       rememberLocation: async () => undefined,
       openDataFolder: async () => undefined,
       getPlatform: async () => ({ electron: '', node: '' }),
+      listAllEvents: async () => events.map((item) => ({ ...item })),
       listEvents: async () => events.map((item) => ({ ...item })),
       createEvent: async (input) => {
         calls.push(`create:${input.title}`)
