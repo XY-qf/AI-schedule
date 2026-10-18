@@ -17,7 +17,14 @@ export interface EventDialogProps {
   siblingEvents?: EventItem[]
   canDelete?: boolean
   /** 编辑时带上已有的重复规则，用于回填 */
-  initialRepeat?: { freq: string; untilDate: string | null; maxCount: number | null } | null
+  initialRepeat?: {
+    freq: string
+    untilDate: string | null
+    maxCount: number | null
+    byWeekdays?: number[] | null
+    intervalValue?: number | null
+    intervalUnit?: 'day' | 'week' | null
+  } | null
   onSave: (input: EventInput, repeat: RepeatPayload | null) => void
   onDelete?: () => void
   onClose: () => void
@@ -28,6 +35,10 @@ export interface RepeatPayload {
   freq: string
   untilDate: string | null
   maxCount: number | null
+  /** 弹窗里改不到，但要把已有的原样带回去，避免编辑时丢掉「每周一三五」 */
+  byWeekdays?: number[] | null
+  intervalValue?: number | null
+  intervalUnit?: 'day' | 'week' | null
 }
 
 const REPEAT_OPTIONS = [
@@ -253,6 +264,10 @@ export function EventDialog({
             freq: form.repeatFreq,
             untilDate: form.repeatUntil || null,
             maxCount: form.repeatCount ? Number(form.repeatCount) : null,
+            // 星期与自定义间隔在弹窗里没有编辑项，原样带回，避免丢掉 AI 识别出的规则
+            byWeekdays: initialRepeat?.byWeekdays ?? null,
+            intervalValue: initialRepeat?.intervalValue ?? null,
+            intervalUnit: initialRepeat?.intervalUnit ?? null,
           }
     onSave(draft, repeat)
   }

@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { BackupInfo } from '../../shared/ipc'
-import { Button, Checkbox } from './Controls'
+import { Button, Checkbox, TextField } from './Controls'
+import { AI_PREFERENCE_KEYS, DEFAULT_BASE_URL, DEFAULT_MODEL, maskApiKey, normalizeBaseUrl, thinkingSwitchedModel } from '../ai/config'
 
 export interface SettingsPageProps {
   dataFilePath: string
@@ -12,6 +13,12 @@ export interface SettingsPageProps {
   onBackupNow: () => void
   onRestore: (fileName: string) => void
   onSetPreference: (key: string, value: string) => void
+  /** 用当前配置发一次最小请求，验证 Key / 网络 */
+  onTestAi?: () => void
+  /** 读取接口支持的模型列表（GET /models） */
+  onFetchModels?: () => void
+  /** 已读取到的模型 id */
+  modelOptions?: string[]
 }
 
 const COLOR_KEYS = [
@@ -32,6 +39,47 @@ function sizeText(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+/** 文本框先落本地，失焦时才写设置——避免每敲一个字母就落一次库。 */
+function PrefTextField({
+  id,
+  label,
+  value,
+  placeholder,
+  hint,
+  type,
+  onCommit,
+}: {
+  id: string
+  label: string
+  value: string
+  placeholder?: string
+  hint?: string
+  type?: string
+  onCommit: (next: string) => void
+}): ReactNode {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => {
+    setDraft(value)
+  }, [value])
+  return (
+    <TextField
+      id={id}
+      label={label}
+      type={type}
+      value={draft}
+      placeholder={placeholder}
+      hint={hint}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft)
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+      }}
+    />
+  )
+}
+
 /** 设置页（PRD 6.8）：数据与备份、类别颜色、显示偏好、关于。 */
 export function SettingsPage({
   dataFilePath,
@@ -43,9 +91,23 @@ export function SettingsPage({
   onBackupNow,
   onRestore,
   onSetPreference,
+  onTestAi,
+  onFetchModels,
+  modelOptions = [],
 }: SettingsPageProps): ReactNode {
   const [pendingRestore, setPendingRestore] = useState<string | null>(null)
   const showTodo = (preferences['display.showTodo'] ?? '1') !== '0'
+  const apiKey = preferences[AI_PREFERENCE_KEYS.apiKey] ?? ''
+  const model = preferences[AI_PREFERENCE_KEYS.model] ?? DEFAULT_MODEL
+  const baseUrl = preferences[AI_PREFERENCE_KEYS.baseUrl] ?? DEFAULT_BASE_URL
+  const thinkingSwitched = thinkingSwitchedModel({
+    enabled: true,
+    baseUrl: normalizeBaseUrl(baseUrl),
+    model,
+    apiKey,
+    temperature: 0.2,
+    thinking: (preferences[AI_PREFERENCE_KEYS.thinking] ?? '1') !== '0',
+  })
 
   return (
     <section className="page" aria-label="设置">
@@ -138,6 +200,90 @@ export function SettingsPage({
             checked={showTodo}
             onChange={(checked) => onSetPreference('display.showTodo', checked ? '1' : '0')}
           />
+        </section>
+
+        <section className="settings__block" data-testid="settings-ai">
+          <h3 className="settings__title">AI 助手（云端）</h3>
+          <Checkbox
+            id="ai-enabled"
+            label="在课程表页 / 日历页显示 AI 入口"
+            checked={(preferences[AI_PREFERENCE_KEYS.enabled] ?? '1') !== '0'}
+            onChange={(checked) => onSetPreference(AI_PREFERENCE_KEYS.enabled, checked ? '1' : '0')}
+          />
+          <PrefTextField
+            id="ai-api-key"
+            label="API Key"
+            type="password"
+            value={apiKey}
+            placeholder="sk-…（硅基流动后台领取）"
+            hint="Key 只保存在本机的数据文件里，请求由本程序直接发往硅基流动。"
+            onCommit={(next) => onSetPreference(AI_PREFERENCE_KEYS.apiKey, next.trim())}
+          />
+          <div className="form-row">
+            <PrefTextField
+              id="ai-model"
+              label="模型"
+              value={model}
+              placeholder={DEFAULT_MODEL}
+              onCommit={(next) => onSetPreference(AI_PREFERENCE_KEYS.model, next.trim() || DEFAULT_MODEL)}
+            />
+            <PrefTextField
+              id="ai-base-url"
+              label="接口地址"
+              value={baseUrl}
+              placeholder={DEFAULT_BASE_URL}
+              onCommit={(next) => onSetPreference(AI_PREFERENCE_KEYS.baseUrl, next.trim())}
+            />
+            <Button size="sm" data-testid="ai-fetch-models" onClick={onFetchModels} disabled={!onFetchModels}>
+              读取可用模型
+            </Button>
+          </div>
+          {modelOptions.length > 0 ? (
+            <div className="settings__row" data-testid="ai-model-options">
+              <span className="settings__label">接口返回的模型</span>
+              <span className="settings__value">
+                {modelOptions.map((id) => (
+                  <button
+                    type="button"
+                    key={id}
+                    className={`btn btn--sm${id === model ? ' btn--primary' : ' btn--ghost'}`}
+                    style={{ marginRight: 6, marginBottom: 4 }}
+                    onClick={() => onSetPreference(AI_PREFERENCE_KEYS.model, id)}
+                  >
+                    {id}
+                  </button>
+                ))}
+              </span>
+            </div>
+          ) : null}
+          <Checkbox
+            id="ai-thinking"
+            label="开启深度思考（DeepSeek 官方会切换到 deepseek-reasoner）"
+            checked={(preferences[AI_PREFERENCE_KEYS.thinking] ?? '1') !== '0'}
+            onChange={(checked) => onSetPreference(AI_PREFERENCE_KEYS.thinking, checked ? '1' : '0')}
+          />
+          {thinkingSwitched ? (
+            <p className="field__hint" data-testid="ai-thinking-hint">
+              思考开着：实际请求会使用 <b>{thinkingSwitched}</b>（官方接口的思考模型），而不是 {model}。
+            </p>
+          ) : null}
+          <div className="settings__row">
+            <span className="settings__label">自检</span>
+            <span className="settings__value">
+              用当前模型发一句「收到」，验证 Key 与网络是否可用
+            </span>
+            <Button size="sm" data-testid="ai-test" onClick={onTestAi} disabled={!onTestAi}>
+              测试连接
+            </Button>
+          </div>
+          <p className="field__hint">
+            {apiKey.trim()
+              ? `已填写 Key（${maskApiKey(apiKey)}）。`
+              : '还没有填 Key：到 cloud.siliconflow.cn 注册后创建 API Key，粘到上面即可（默认模型 ' +
+                DEFAULT_MODEL +
+                ' 是免费额度）。'}
+            识别结果只写进「待确认」列表，确认后才会进课程表/日历。
+          </p>
         </section>
 
         <section className="settings__block">

@@ -1,6 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, protocol, shell, Tray } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import { Readable } from 'node:stream'
 import { BackupService } from './services/backup'
 import { checkExecutablePath } from './pathGuard'
 import { buildMenuTemplate } from './appMenu'
@@ -17,6 +18,20 @@ import { DataStore, CorruptDataFileError } from './db/store'
 import { SettingsRepository } from './db/settings'
 import { buildStatusPayload, unavailableStatus } from './status'
 import { DataDirectoryError, ensureDataDir, resolveAppPaths, type AppPaths } from './paths'
+import { resolveRendererAsset } from './rendererProtocol'
+import {
+  GPU_COMPAT_RETRY_MS,
+  clearBootPending,
+  clearGpuCompatState,
+  decideGpuCompat,
+  markBootPending,
+  readBootPending,
+  readGpuCompatState,
+  writeGpuCompatState,
+} from './gpuCompat'
+import { gpuCompatSwitches } from '../shared/gpuCompat'
+import { listModels, streamChat } from './aiClient'
+import type { AiChatPayload, AiModelsPayload } from '../shared/aiChat'
 import {
   DEFAULT_WINDOW_STATE,
   loadWindowState,
@@ -53,6 +68,103 @@ import type { StatusPayload, PreloadApi } from '../shared/ipc'
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 const SELFTEST = process.env.AI_SCHEDULE_SELFTEST === '1'
+
+// ---------------------------------------------------------------------------
+// 打包后界面用自定义协议加载，而不是 file://。
+//
+// 原因：AI 课程助手要在渲染进程里跑 Web Worker + WebAssembly（ONNX Runtime），
+// 还要从 Hugging Face 下载模型。file:// 下模块化 Worker、fetch 资源、
+// WebGPU 的安全上下文都会被浏览器拦掉；换成注册为 secure 的 app:// 就没有这些问题。
+// 万一协议加载失败会自动退回 file://，保证界面本身还能打开。
+// ---------------------------------------------------------------------------
+const RENDERER_SCHEME = 'app'
+const RENDERER_ORIGIN = 'app://bundle'
+const USE_FILE_PROTOCOL = process.env.AI_SCHEDULE_FILE_PROTOCOL === '1'
+
+// ---------------------------------------------------------------------------
+// GPU 兼容模式（分级）：某些机器上 Chromium 的 GPU 子进程起不来（error_code=18），
+// 程序会直接崩在启动阶段。上一次哪一级没走完，这次就往下再降一级：
+//   gpu-sandbox（保留硬件加速）→ in-process → software（保证能开）。
+// ---------------------------------------------------------------------------
+const gpuCompatFile = path.join(app.getPath('userData'), 'gpu-compat.json')
+const bootPendingFile = path.join(app.getPath('userData'), 'boot.pending')
+const gpuDecision = decideGpuCompat({
+  argv: process.argv,
+  env: process.env as Record<string, string | undefined>,
+  lastPendingMode: readBootPending(bootPendingFile),
+  state: readGpuCompatState(gpuCompatFile),
+  now: Date.now(),
+})
+for (const flag of gpuCompatSwitches(gpuDecision.mode)) {
+  app.commandLine.appendSwitch(flag)
+}
+if (gpuDecision.mode !== 'off') {
+  // 前半段用 ASCII：控制台/重定向日志的编码五花八门，中文容易变乱码
+  console.warn(
+    `[gpu-compat] mode=${gpuDecision.mode} reason=${gpuDecision.reason ?? 'unknown'} switches=${gpuCompatSwitches(gpuDecision.mode).join(',')}`,
+  )
+}
+markBootPending(bootPendingFile, gpuDecision.mode, Date.now())
+
+/** 界面加载成功后：清掉"启动中"标记，并记下这次是不是靠兼容模式救回来的。 */
+function markBootCompleted(): void {
+  clearBootPending(bootPendingFile)
+  if (gpuDecision.reason === 'crash') {
+    // 上一次崩了、这一级救回来了：记住它，7 天后再试一次正常 GPU
+    writeGpuCompatState(gpuCompatFile, {
+      mode: gpuDecision.mode,
+      retryAt: Date.now() + GPU_COMPAT_RETRY_MS,
+    })
+  } else if (gpuDecision.mode === 'off') {
+    clearGpuCompatState(gpuCompatFile)
+  }
+}
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: RENDERER_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+])
+
+/** 界面资源的 MIME 与路径解析在 rendererProtocol.ts 里，便于单独测试。 */
+
+/**
+ * 把 app://bundle/xxx 映射到打包后的 dist/renderer/xxx。
+ *
+ * 用 fs 读而不是 net.fetch('file://…')：这样 asar 内的文件（以及 asarUnpack 出来的
+ * 文件）都能按 Electron 的透明映射读到，26 MB 的 wasm 也不用整块读进内存。
+ */
+function registerRendererProtocol(): void {
+  const rendererRoot = path.normalize(path.join(__dirname, '../renderer'))
+  protocol.handle(RENDERER_SCHEME, async (request) => {
+    try {
+      const asset = resolveRendererAsset(rendererRoot, request.url)
+      if (!asset) return new Response('Forbidden', { status: 403 })
+      if (!fs.existsSync(asset.target)) return new Response('Not Found', { status: 404 })
+      const stat = fs.statSync(asset.target)
+      if (!stat.isFile()) return new Response('Not Found', { status: 404 })
+
+      const body = Readable.toWeb(fs.createReadStream(asset.target)) as unknown as ReadableStream
+      return new Response(body, {
+        status: 200,
+        headers: { 'content-type': asset.mime, 'content-length': String(stat.size) },
+      })
+    } catch (error) {
+      return new Response(`界面资源加载失败：${String(error)}`, {
+        status: 500,
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+      })
+    }
+  })
+}
+
 
 /** 自检期把关键节点写到工作目录，便于排查启动失败。 */
 function diag(name: string, payload: unknown): void {
@@ -100,6 +212,8 @@ interface RuntimeState {
 
 let runtime: RuntimeState | null = null
 let backupService: BackupService | null = null
+/** 正在进行中的云端 AI 请求，用于「停止」 */
+const activeChats = new Map<string, AbortController>()
 
 function resolveWasmPath(): string {
   // 打包后 wasm 会被解压到 app.asar.unpacked，resolve 结果同样可用
@@ -199,16 +313,77 @@ function createMainWindow(state: RuntimeState): BrowserWindow {
   if (bounds.maximized) win.maximize()
   mainWindow = win
   win.once('ready-to-show', () => win.show())
+  win.webContents.once('did-finish-load', () => markBootCompleted())
+
+  // 远程控制/串流软件常把 Ctrl+Shift+I 吞掉，这里直接监听按键，F12 也能开
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    const isF12 = input.key === 'F12'
+    const isCtrlShiftI = input.control && input.shift && input.key.toLowerCase() === 'i'
+    if (!isF12 && !isCtrlShiftI) return
+    event.preventDefault()
+    if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools()
+    else win.webContents.openDevTools({ mode: 'detach' })
+  })
+
+  const gpuQuery = gpuDecision.mode !== 'off' ? `&gpuCompat=${gpuDecision.mode}` : ''
+  const fileQuery: Record<string, string> = {
+    page: bounds.lastPage,
+    view: bounds.lastView,
+  }
+  if (gpuDecision.mode !== 'off') fileQuery.gpuCompat = gpuDecision.mode
 
   if (DEV_SERVER_URL) {
     const url = new URL(DEV_SERVER_URL)
     url.searchParams.set('page', bounds.lastPage)
     url.searchParams.set('view', bounds.lastView)
+    if (gpuDecision.mode !== 'off') url.searchParams.set('gpuCompat', gpuDecision.mode)
     void win.loadURL(url.toString())
+  } else if (USE_FILE_PROTOCOL) {
+    void win.loadFile(path.join(__dirname, '../renderer/index.html'), { query: fileQuery })
   } else {
-    void win.loadFile(path.join(__dirname, '../renderer/index.html'), {
-      query: { page: bounds.lastPage, view: bounds.lastView },
+    const query = `?page=${encodeURIComponent(bounds.lastPage)}&view=${encodeURIComponent(bounds.lastView)}${gpuQuery}`
+    let fellBack = false
+    const fallbackToFile = (): void => {
+      if (fellBack) return
+      fellBack = true
+      console.warn('自定义协议加载失败，退回 file:// 加载界面')
+      void win.loadFile(path.join(__dirname, '../renderer/index.html'), { query: fileQuery })
+    }
+    win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _url, isMainFrame) => {
+      if (!isMainFrame) return
+      console.warn('界面加载失败', errorCode, errorDescription)
+      fallbackToFile()
     })
+    void win.loadURL(`${RENDERER_ORIGIN}/index.html${query}`).catch(() => fallbackToFile())
+
+    // 协议能返回 index.html、但脚本被挡住时窗口会是白屏，这里再兜一层：
+    // 8 秒内 #root 一直没挂上东西就退回 file://（此时 AI 功能不可用，界面照常可用）。
+    if (!SELFTEST) {
+      let checks = 0
+      const timer = setInterval(() => {
+        checks += 1
+        if (fellBack || win.isDestroyed()) {
+          clearInterval(timer)
+          return
+        }
+        void win.webContents
+          .executeJavaScript(
+            "Boolean(document.getElementById('root') && document.getElementById('root').childElementCount)",
+            true,
+          )
+          .then((mounted: unknown) => {
+            if (mounted) clearInterval(timer)
+          })
+          .catch(() => undefined)
+        if (checks >= 16) {
+          clearInterval(timer)
+          console.warn('app:// 加载后界面一直没有挂载，退回 file://')
+          fallbackToFile()
+        }
+      }, 500)
+      win.once('closed', () => clearInterval(timer))
+    }
   }
 
   const persist = (): void => {
@@ -394,6 +569,87 @@ function registerIpc(): void {
     const existing = requireCourseExceptions().getByDate(courseId, originalDate)
     if (existing) requireCourseExceptions().remove(existing.id)
   })
+
+  registerAiIpc()
+}
+
+/**
+ * 云端 AI 的 IPC。
+ *
+ * 渲染进程不能直连第三方接口（自定义 app:// origin 会被 CORS 挡），
+ * 所以由主进程代发请求，并把流式分片按请求 id 推回去。
+ */
+function registerAiIpc(): void {
+  ipcMain.handle('ai:chat', async (event, payload: AiChatPayload) => {
+    const apiKey = (payload.apiKey ?? '').trim() || (process.env.DEEPSEEK_API_KEY ?? '').trim() ||
+      (process.env.SILICONFLOW_API_KEY ?? '').trim()
+    if (!apiKey) {
+      return { ok: false, error: '还没配置 API Key：请到「设置 → AI 助手」填写 DeepSeek 的 Key' }
+    }
+    if (!payload.baseUrl?.trim()) return { ok: false, error: '接口地址为空' }
+    if (!payload.model?.trim()) return { ok: false, error: '模型名为空' }
+
+    const controller = new AbortController()
+    activeChats.set(payload.id, controller)
+    const sender = event.sender
+    const hasImage = payload.messages.some((message) => Array.isArray(message.content))
+    console.log(
+      `[ai] chat start model=${payload.model} image=${hasImage ? 'yes' : 'no'} tools=${payload.tools?.length ?? 0}`,
+    )
+    try {
+      const result = await streamChat(payload, {
+        apiKey,
+        signal: controller.signal,
+        onChunk: (chunk) => {
+          if (!sender.isDestroyed()) sender.send('ai:chunk', payload.id, chunk)
+        },
+      })
+      console.log(
+        `[ai] chat done text=${result.text.length} chars toolCalls=${result.toolCalls.length} finish=${result.finishReason ?? '-'}`,
+      )
+      return {
+        ok: true,
+        text: result.text,
+        toolCalls: result.toolCalls,
+        finishReason: result.finishReason,
+      }
+    } catch (error) {
+      const aborted = controller.signal.aborted
+      const raw = String((error as Error)?.message ?? error)
+      const base =
+        aborted
+          ? '已停止'
+          : (error as Error)?.name === 'AbortError'
+            ? '请求超时，请检查网络或稍后重试'
+            : raw
+      // 模型名写错是最常见的坑，给一句能直接照做的提示
+      const message = /model/i.test(base) && /not\s*exist|不存在|invalid|unknown|无可用/i.test(base)
+        ? `${base}（模型名可能不对：到「设置 → AI 助手」改模型，或跑 python scripts/ai-probe.py --list deepseek 看可用 id）`
+        : base
+      if (!sender.isDestroyed()) sender.send('ai:chunk', payload.id, { type: 'error', message })
+      console.warn(`[ai] chat failed: ${message}`)
+      return { ok: false, error: message }
+    } finally {
+      activeChats.delete(payload.id)
+    }
+  })
+
+  ipcMain.on('ai:cancel', (_event, id: string) => {
+    activeChats.get(id)?.abort()
+  })
+
+  ipcMain.handle('ai:models', async (_event, payload: AiModelsPayload) => {
+    const apiKey = (payload.apiKey ?? '').trim() || (process.env.DEEPSEEK_API_KEY ?? '').trim() ||
+      (process.env.SILICONFLOW_API_KEY ?? '').trim()
+    if (!apiKey) return { ok: false, error: '还没配置 API Key', models: [] }
+    if (!payload.baseUrl?.trim()) return { ok: false, error: '接口地址为空', models: [] }
+    try {
+      const models = await listModels({ baseUrl: payload.baseUrl, apiKey })
+      return { ok: true, models }
+    } catch (error) {
+      return { ok: false, error: String((error as Error)?.message ?? error), models: [] }
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -420,6 +676,7 @@ if (!app.requestSingleInstanceLock()) {
 
 app.whenReady().then(async () => {
   runtime = await bootstrap()
+  if (!USE_FILE_PROTOCOL) registerRendererProtocol()
   registerIpc()
   setupBackup(runtime)
   const win = createMainWindow(runtime)

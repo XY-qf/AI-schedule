@@ -1,3 +1,4 @@
+import { isGpuCompatMode, type GpuCompatMode } from '../shared/gpuCompat'
 import { isPageKey, isViewKey, type PageKey, type ViewKey } from '../shared/navigation'
 
 export interface InitialLocation {
@@ -17,4 +18,12 @@ export function readInitialLocation(search: string): InitialLocation {
     page: isPageKey(page) ? page : 'calendar',
     view: isViewKey(view) ? view : 'week',
   }
+}
+
+/**
+ * 主进程可能启用了 GPU 兼容模式；没有或非法就返回 null（正常模式）。
+ */
+export function readGpuCompatMode(search: string): GpuCompatMode | null {
+  const raw = new URLSearchParams(search).get('gpuCompat')
+  return isGpuCompatMode(raw) ? raw : null
 }

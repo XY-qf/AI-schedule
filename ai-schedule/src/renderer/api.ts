@@ -68,6 +68,9 @@ const fallback: PreloadApi = {
     throw new Error('当前环境不可保存例外')
   },
   deleteEventException: async () => undefined,
+  aiChat: async () => ({ ok: false, error: '当前环境不能调用云端模型（没有 Electron 主进程）' }),
+  aiCancel: () => undefined,
+  aiModels: async () => ({ ok: false, error: '当前环境不能列模型', models: [] }),
 }
 
 export function getApi(): PreloadApi {

@@ -185,7 +185,15 @@ describe('新建弹窗里的重复设置', () => {
     fireEvent.change(screen.getByLabelText('重复到（可空）'), { target: { value: '2026-06-30' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(saved.length).toBe(1)
-    expect(saved[0].repeat).toEqual({ freq: 'weekly', untilDate: '2026-06-30', maxCount: null })
+    // 星期与自定义间隔在弹窗里没有编辑项，原样带回（新建时都是 null）
+    expect(saved[0].repeat).toEqual({
+      freq: 'weekly',
+      untilDate: '2026-06-30',
+      maxCount: null,
+      byWeekdays: null,
+      intervalValue: null,
+      intervalUnit: null,
+    })
     cleanup()
   })
 

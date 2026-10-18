@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { PreloadApi, StatusPayload, RecurrencePayload, ExceptionPayload } from '../shared/ipc'
+import type {
+  AiChatOutcome,
+  PreloadApi,
+  StatusPayload,
+  RecurrencePayload,
+  ExceptionPayload,
+} from '../shared/ipc'
+import type { AiChatChunk, AiChatPayload, AiModelsPayload, AiModelsResult } from '../shared/aiChat'
 import type { PageKey, ViewKey } from '../shared/navigation'
 import type {
   Course,
@@ -72,6 +79,25 @@ const api: PreloadApi = {
   listEventExceptions: () => ipcRenderer.invoke('eventExceptions:list'),
   upsertEventException: (input: ExceptionPayload) => ipcRenderer.invoke('eventExceptions:upsert', input),
   deleteEventException: (id: string) => ipcRenderer.invoke('eventExceptions:delete', id),
+
+  aiChat: (payload: AiChatPayload, onChunk: (chunk: AiChatChunk) => void): Promise<AiChatOutcome> => {
+    const listener = (_event: unknown, id: string, chunk: AiChatChunk): void => {
+      if (id !== payload.id) return
+      onChunk(chunk)
+    }
+    ipcRenderer.on('ai:chunk', listener)
+    return ipcRenderer
+      .invoke('ai:chat', payload)
+      .then((result) => result as AiChatOutcome)
+      .finally(() => {
+        ipcRenderer.removeListener('ai:chunk', listener)
+      })
+  },
+  aiCancel: (id: string): void => {
+    ipcRenderer.send('ai:cancel', id)
+  },
+  aiModels: (payload: AiModelsPayload): Promise<AiModelsResult> =>
+    ipcRenderer.invoke('ai:models', payload),
 }
 
 contextBridge.exposeInMainWorld('api', api)

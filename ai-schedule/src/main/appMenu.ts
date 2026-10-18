@@ -65,7 +65,9 @@ export function buildMenuTemplate(actions: MenuActions): MenuItemConstructorOpti
         { label: '重新加载', accelerator: 'CmdOrCtrl+R', click: actions.onReload },
         { label: '全屏', role: 'togglefullscreen' },
         { type: 'separator' },
+        // 远程控制/串流软件会吞掉 Ctrl+Shift+I，所以再给一个 F12
         { label: '开发者工具', accelerator: 'CmdOrCtrl+Shift+I', click: actions.onToggleDevTools },
+        { label: '开发者工具（F12）', accelerator: 'F12', click: actions.onToggleDevTools },
       ] as MenuItemConstructorOptions[],
     },
     {

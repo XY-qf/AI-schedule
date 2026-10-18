@@ -11,6 +11,16 @@ import type {
   SemesterInput,
 } from './entities'
 import type { RecRule, SeriesException } from './recurrence'
+import type { AiChatChunk, AiChatPayload, AiChatToolCall, AiModelsPayload, AiModelsResult } from './aiChat'
+
+/** AI 调用结果：流式分片通过回调给，结束时把完整文本与工具调用交回渲染进程。 */
+export interface AiChatOutcome {
+  ok: boolean
+  error?: string
+  text?: string
+  toolCalls?: AiChatToolCall[]
+  finishReason?: string | null
+}
 
 /** 新建/修改重复规则时传的内容。 */
 export interface RecurrencePayload {
@@ -132,4 +142,12 @@ export interface PreloadApi {
   listEventExceptions(): Promise<SeriesException[]>
   upsertEventException(input: ExceptionPayload): Promise<SeriesException>
   deleteEventException(id: string): Promise<void>
+
+  /* ---- AI（云端大模型，主进程代发请求） ---- */
+  /** 流式对话；分片通过 onChunk 回调，结束时回成败 */
+  aiChat(payload: AiChatPayload, onChunk: (chunk: AiChatChunk) => void): Promise<AiChatOutcome>
+  /** 中止某次对话 */
+  aiCancel(id: string): void
+  /** 取接口支持的模型列表（GET /models），用来核对模型名 */
+  aiModels(payload: AiModelsPayload): Promise<AiModelsResult>
 }

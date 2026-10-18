@@ -10,6 +10,12 @@ import { EventDialog } from './components/EventDialog'
 import { DetailPanel } from './components/DetailPanel'
 import { CourseTablePage } from './components/CourseTablePage'
 import { CourseDialog } from './components/CourseDialog'
+import { AiCourseComposer } from './components/AiCourseComposer'
+import { AiEventComposer } from './components/AiEventComposer'
+import { AiStatusBadge } from './components/AiStatusBadge'
+import { resolveAiConfig } from './ai/config'
+import { createAiRuntime } from './ai/runtime'
+import type { AiEngineFactory, AiStatus, DraftRepeat } from './ai/types'
 import { SemesterDialog } from './components/SemesterDialog'
 import { PeriodsDialog } from './components/PeriodsDialog'
 import { CourseMoveDialog } from './components/CourseMoveDialog'
@@ -62,6 +68,9 @@ export interface AppProps {
   today?: Date
   /** 提示条自动消失时间（毫秒） */
   toastTimeoutMs?: number
+  /** AI 引擎工厂：测试注入假引擎，正常运行时按需加载真实引擎 */
+  aiEngineFactory?: AiEngineFactory
+  /** 主进程启用的 GPU 兼容模式（off / gpu-sandbox / in-process / software） */
 }
 
 interface ToastState {
@@ -97,6 +106,7 @@ export function App({
   api,
   today,
   toastTimeoutMs = 5000,
+  aiEngineFactory,
 }: AppProps): ReactNode {
   const client = api ?? getApi()
   const now = today ?? new Date()
@@ -109,10 +119,11 @@ export function App({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
+  const [aiModelOptions, setAiModelOptions] = useState<string[]>([])
 
   const [semesters, setSemesters] = useState<Semester[]>([])
   const [periods, setPeriods] = useState<Period[]>([])
-  const [courses, setCourses] = useState<Course[]>([])
+  const [courses, setCourses] = useState<Course[]>([])        // 添加新课程
   const [currentSemesterId, setCurrentSemesterId] = useState<string | null>(null)
   const [semesterDialog, setSemesterDialog] = useState<{ mode: 'create' | 'edit' } | null>(null)
   const [periodsOpen, setPeriodsOpen] = useState(false)
@@ -404,11 +415,13 @@ export function App({
     setDialog({ mode: 'edit', initial: target, defaults: { date: '', startTime: '09:00' } })
   }
 
-  const toRulePayload = (repeat: RepeatPayload): RecurrencePayload => ({
+  const toRulePayload = (repeat: RepeatPayload | DraftRepeat): RecurrencePayload => ({
     freq: repeat.freq as RecurrencePayload['freq'],
     untilDate: repeat.untilDate,
     maxCount: repeat.maxCount,
-    byWeekdays: null,
+    byWeekdays: repeat.byWeekdays ?? null,
+    intervalValue: repeat.intervalValue ?? null,
+    intervalUnit: repeat.intervalUnit ?? null,
   })
 
   const handleSave = async (input: EventInput, repeat: RepeatPayload | null): Promise<void> => {
@@ -839,8 +852,105 @@ export function App({
     }
   }
 
-  const handleSavePeriods = async (items: PeriodInput[]): Promise<void> => {
+  /* ---------------- AI 课程助手 ---------------- */
+
+  const aiConfig = useMemo(() => resolveAiConfig(preferences), [preferences])
+
+  /** AI 运行期状态放在 App 里，两个入口共用同一个模型实例，也供右下角状态窗读取 */
+  const [aiRuntime] = useState(() => createAiRuntime(aiEngineFactory))
+  const [aiStatus, setAiStatus] = useState<AiStatus>(() => aiRuntime.getStatus())
+
+  useEffect(() => {
+    setAiStatus(aiRuntime.getStatus())
+    return aiRuntime.subscribe(() => setAiStatus(aiRuntime.getStatus()))
+  }, [aiRuntime])
+
+  useEffect(() => {
+    aiRuntime.configure(aiConfig)
+  }, [aiRuntime, aiConfig])
+
+  useEffect(() => () => aiRuntime.dispose(), [aiRuntime])
+
+  /** AI 草稿经用户确认后，逐条写进课程表 */
+  /** 设置页的「测试连接」：用当前配置发一条最小请求 */
+  /** 设置页「读取可用模型」：GET /models，列出 Key 能用的模型 id */
+  const handleFetchAiModels = async (): Promise<void> => {
     try {
+      const result = await client.aiModels({ baseUrl: aiConfig.baseUrl, apiKey: aiConfig.apiKey })
+      if (!result.ok) {
+        setToast({ message: `读取模型失败：${result.error ?? '未知错误'}` })
+        return
+      }
+      setAiModelOptions(result.models)
+      setToast({
+        message: result.models.length > 0
+          ? `可用模型 ${result.models.length} 个，点一下名字即可选用`
+          : '接口没有返回模型列表',
+      })
+    } catch (error) {
+      setToast({ message: `读取模型失败：${String((error as Error)?.message ?? error)}` })
+    }
+  }
+
+  const handleTestAi = async (): Promise<void> => {
+    try {
+      const outcome = await client.aiChat(
+        {
+          id: `test-${Date.now()}`,
+          baseUrl: aiConfig.baseUrl,
+          model: aiConfig.model,
+          apiKey: aiConfig.apiKey,
+          messages: [{ role: 'user', content: '只回复两个字：收到' }],
+          maxTokens: 16,
+          temperature: 0,
+          timeoutMs: 30_000,
+        },
+        () => undefined,
+      )
+      setToast({
+        message: outcome.ok
+          ? `连接正常：${aiConfig.model}`
+          : `连接失败：${outcome.error ?? '未知错误'}`,
+      })
+    } catch (error) {
+      setToast({ message: `连接失败：${String((error as Error)?.message ?? error)}` })
+    }
+  }
+
+  const handleAddAiCourses = async (inputs: CourseInput[]): Promise<number> => {
+    if (!currentSemesterId) throw new Error('请先新建学期')
+    let added = 0
+    for (const input of inputs) {
+      await client.createCourse({ ...input, semesterId: currentSemesterId })
+      added += 1
+    }
+    setCourses(await client.listCourses(currentSemesterId))
+    setToast({ message: `已加入 ${added} 门课程` })
+    return added
+  }
+
+  /** AI 草稿经用户确认后，逐条写进日历 */
+  const handleAddAiEvents = async (
+    items: Array<{ input: EventInput; repeat: DraftRepeat | null }>,
+  ): Promise<number> => {
+    let added = 0
+    for (const item of items) {
+      let recurrenceId: string | null = null
+      // 有重复规则就先把规则建出来，再挂到日程上
+      if (item.repeat) {
+        const rule = await client.createRecurrence(toRulePayload(item.repeat))
+        recurrenceId = rule.id
+      }
+      await client.createEvent({ ...item.input, recurrenceId })
+      added += 1
+    }
+    await refresh()
+    if (items.some((item) => item.repeat)) await loadRecurrences()
+    setToast({ message: `已加入 ${added} 条日程` })
+    return added
+  }
+
+  const handleSavePeriods = async (items: PeriodInput[]): Promise<void> => {    try {
       setPeriods(await client.savePeriods(items))
       setPeriodsOpen(false)
       setToast({ message: '已保存作息时间表' })
@@ -998,6 +1108,15 @@ export function App({
                 {view === 'week' ? weekRangeLabel(startOfWeekMonday(anchor)) : ''}
               </span>
             </div>
+            <div className="page__ai page__ai--wide">
+              <AiEventComposer
+                today={now}
+                config={aiConfig}
+                runtime={aiRuntime}
+                onAddEvents={handleAddAiEvents}
+                defaultCategory="activity"
+              />
+            </div>
             <div className="page__body page__body--split">
               <div className="calendar-surface">
                 {isFirstRun ? (
@@ -1109,6 +1228,16 @@ export function App({
             periods={periods}
             courses={courses}
             today={now}
+            aiSlot={
+              <AiCourseComposer
+                semester={currentSemester}
+                periods={periods}
+                existingCourses={courses}
+                config={aiConfig}
+                runtime={aiRuntime}
+                onAddCourses={handleAddAiCourses}
+              />
+            }
             onSelectSemester={(id) => void handleSelectSemester(id)}
             onNewSemester={() => setSemesterDialog({ mode: 'create' })}
             onEditSemester={() => setSemesterDialog({ mode: 'edit' })}
@@ -1155,6 +1284,9 @@ export function App({
             onBackupNow={() => void handleBackupNow()}
             onRestore={handleRestore}
             onSetPreference={handleSetPreference}
+            onTestAi={() => void handleTestAi()}
+            onFetchModels={() => void handleFetchAiModels()}
+            modelOptions={aiModelOptions}
           />
         ) : (
           <section className="page" aria-label={PAGE_LABEL[page]}>
@@ -1240,6 +1372,12 @@ export function App({
           onClose={() => setMenu(null)}
         />
       ) : null}
+      <AiStatusBadge
+        status={aiStatus}
+        config={aiConfig}
+        onAbort={() => aiRuntime.abort()}
+        onOpenSettings={() => navigate('settings', view)}
+      />
       {toast ? (
         <Toast
           message={toast.message}

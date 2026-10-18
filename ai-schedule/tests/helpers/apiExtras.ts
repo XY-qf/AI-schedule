@@ -35,6 +35,9 @@ export const EMPTY_COURSE_API: Pick<
   | 'listEventExceptions'
   | 'upsertEventException'
   | 'deleteEventException'
+  | 'aiChat'
+  | 'aiCancel'
+  | 'aiModels'
 > = {
   listSemesters: async () => [],
   createSemester: async () => {
@@ -80,4 +83,14 @@ export const EMPTY_COURSE_API: Pick<
     throw new Error('测试桩未实现')
   },
   deleteEventException: async () => undefined,
+  aiChat: async () => ({ ok: false, error: '测试桩未实现' }),
+  aiCancel: () => undefined,
+  aiModels: async () => ({ ok: true, models: [] }),
+}
+
+/** 不走 EMPTY_COURSE_API 的测试可以直接展开这两个 AI 桩。 */
+export const AI_API_STUBS: Pick<PreloadApi, 'aiChat' | 'aiCancel' | 'aiModels'> = {
+  aiChat: async () => ({ ok: false, error: '测试桩未实现' }),
+  aiCancel: () => undefined,
+  aiModels: async () => ({ ok: true, models: [] }),
 }

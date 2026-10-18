@@ -10,6 +10,8 @@ export interface CourseTablePageProps {
   periods: Period[]
   courses: Course[]
   today: Date
+  /** 表格上方的扩展区（AI 录入入口） */
+  aiSlot?: ReactNode
   onSelectSemester: (id: string) => void
   onNewSemester: () => void
   onEditSemester: () => void
@@ -25,6 +27,7 @@ export function CourseTablePage({
   periods,
   courses,
   today,
+  aiSlot,
   onSelectSemester,
   onNewSemester,
   onEditSemester,
@@ -65,6 +68,8 @@ export function CourseTablePage({
           作息时间表
         </button>
       </div>
+
+      {aiSlot ? <div className="page__ai">{aiSlot}</div> : null}
 
       {!semester ? (
         <div className="page__body">

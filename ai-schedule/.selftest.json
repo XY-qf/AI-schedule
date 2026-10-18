@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "result": {
+    "navItems": 6,
+    "toolbarTitle": "2026年10月 第3周",
+    "statusText": "数据位置：C:\\Users\\31815\\Documents\\AI日程\\schedule.db上次自动备份：2026-10-18 11:18共 9 条日程",
+    "hasApi": true,
+    "rootChildren": 1,
+    "bodyText": " 日历课程表课外活动个人生活待办设置‹2026年10月 第3周›今天＋ 新建编辑周日月列表10月12日 – 18日全天周一10/12周二10/13周三10/14周四10/15周五10/16周六10/17周日10/1800:0001:0002:0003:0004:0005:0006:0007:0008:0009:0010"
+  },
+  "dataFilePath": "C:\\Users\\31815\\Documents\\AI日程\\schedule.db"
+}
