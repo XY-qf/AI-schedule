@@ -1,0 +1,32 @@
+/* ---------- 重复日程三选一 ---------- */
+.scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scope-option {
+  display: grid;
+  grid-template-columns: 20px 96px 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--fs-body);
+}
+
+.scope-option.is-active {
+  border-color: var(--color-course);
+  background: var(--color-course-soft);
+}
+
+.scope-option__label {
+  font-weight: 600;
+}
+
+.scope-option__hint {
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+}

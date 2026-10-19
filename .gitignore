@@ -1,0 +1,24 @@
+# ---------- 依赖与构建产物（体积大，不入库） ----------
+node_modules/
+dist/
+dist-test/
+release/
+.electron-cache/
+probe-electron/
+
+# ---------- 文档：只保留根目录的 README.md ----------
+*.md
+!/README.md
+
+# ---------- 运行与调试留下的文件 ----------
+.selftest.json
+.diag-boot.json
+*.log
+*.zip
+重新启动
+
+# ---------- 系统与编辑器 ----------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

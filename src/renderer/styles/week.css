@@ -1,0 +1,300 @@
+/* ---------- 周视图 ---------- */
+.week-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  background: var(--color-surface);
+}
+
+/* 全天条：高度随内容增长，不再被时间区挤压（用户反馈第二版第 3 条） */
+.week-allday {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  border-bottom: 1px solid var(--color-border);
+  flex: 0 0 auto;
+  background: var(--color-surface);
+}
+
+.week-allday__label {
+  font-size: var(--fs-meta);
+  color: var(--color-text-faint);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 7px 8px 0 0;
+}
+
+.week-allday__body {
+  position: relative;
+  min-height: 30px;
+  max-height: 160px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.week-allday__grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-left: 1px solid var(--color-border);
+  pointer-events: none;
+}
+
+.week-allday__col {
+  border-right: 1px solid var(--color-border);
+}
+
+.week-allday__col.is-today {
+  background: var(--color-today);
+}
+
+.week-allday__chips {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px 0;
+  padding: 4px 0 5px;
+}
+
+.allday-chip {
+  height: 22px;
+  margin: 0 3px;
+  border: none;
+  border-left: 3px solid var(--category-color);
+  background: var(--category-soft);
+  color: var(--color-text);
+  border-radius: 4px;
+  font-size: var(--fs-meta);
+  text-align: left;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+
+.allday-chip:hover {
+  filter: brightness(0.97);
+}
+
+.allday-chip.is-done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+/* 只有开始 / 只有截止的日程：画一道线，而不是占一个方块 */
+.point-marker {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  height: 0;
+  transform: translateY(-1px);
+  border: none;
+  border-top: 2px solid var(--category-color);
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.point-marker--due {
+  border-top-style: dashed;
+}
+
+.point-marker__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--category-color);
+  flex: 0 0 auto;
+  margin-left: 1px;
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+.point-marker__label {
+  font-size: var(--fs-tiny);
+  line-height: 1.4;
+  color: var(--category-deep, var(--color-text));
+  background: var(--color-surface);
+  padding: 0 4px;
+  border-radius: 3px;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.point-marker.is-done {
+  opacity: 0.5;
+}
+
+.point-marker.is-done .point-marker__label {
+  text-decoration: line-through;
+}
+
+/* 列头 */
+.week-head {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+.week-head__cols {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-left: 1px solid var(--color-border);
+}
+
+.week-head__cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-right: 1px solid var(--color-border);
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+}
+
+.week-head__cell.is-today {
+  color: #1d4ed8;
+  font-weight: 700;
+  background: var(--color-today);
+}
+
+/* 主体 */
+.week-body {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.week-axis {
+  border-right: 1px solid var(--color-border);
+}
+
+.week-axis__row {
+  position: relative;
+  border-bottom: 1px solid transparent;
+}
+
+.week-axis__label {
+  position: absolute;
+  top: -7px;
+  right: 8px;
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+.week-cols {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-left: 1px solid var(--color-border);
+}
+
+.week-col {
+  position: relative;
+  border-right: 1px solid var(--color-border);
+}
+
+.week-col.is-today {
+  background: var(--color-today);
+}
+
+.week-col__bg {
+  position: absolute;
+  inset: 0;
+}
+
+.week-slot {
+  border-bottom: 1px solid #f1f3f5;
+}
+
+/* 每小时一条细线，方便看时间 */
+.week-col__bg .week-slot:nth-child(2n + 1) {
+  border-bottom-color: #f8f9fa;
+}
+
+.week-col__blocks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 日程块 */
+.event-block {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  border: none;
+  border-left: 3px solid var(--category-color);
+  background: var(--category-soft);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 2px 5px;
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--fs-meta);
+}
+
+.event-block:hover {
+  filter: brightness(0.97);
+}
+
+.event-block.is-done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.event-block__title {
+  font-weight: 600;
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-block__meta {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 编辑态：可拖动的块显示抓手光标 */
+.event-block.is-editable {
+  cursor: grab;
+}
+
+.event-block.is-dragging {
+  cursor: grabbing;
+  opacity: 0.85;
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+}
+
+.event-block__resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.event-block__resize:hover {
+  background: rgba(15, 23, 42, 0.08);
+}

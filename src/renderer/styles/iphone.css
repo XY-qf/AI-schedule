@@ -1,0 +1,153 @@
+/* ---------- 日历观感：向 iPhone 自带日历靠拢（反馈第二版「后续功能」第 2 条） ----------
+   要点：更少的线、更圆的块、今天用圆圈标出、事件用实色小条而不是边框块。 */
+
+/* 时间网格：只保留很浅的整点线，去掉逐格边框 */
+.week-slot {
+  border-bottom: 1px solid #f4f5f8;
+}
+
+.week-col__bg .week-slot:nth-child(2n + 1) {
+  border-bottom-color: #fafbfc;
+}
+
+.week-col {
+  border-right: 1px solid #f2f3f7;
+}
+
+.week-col.is-today {
+  background: rgba(59, 110, 240, 0.035);
+}
+
+/* 时间轴文字更轻 */
+.week-axis__label {
+  font-size: var(--fs-tiny);
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 列头：今天用圆圈 */
+.week-head {
+  border-bottom: 1px solid #eef0f4;
+}
+
+.week-head__cell.is-today .week-head__date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: #fff;
+  font-weight: 600;
+}
+
+.week-head__weekday {
+  font-size: var(--fs-tiny);
+  color: var(--color-text-faint);
+}
+
+.week-head__cell.is-today .week-head__weekday {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+/* 日程块：实色填充 + 白字，圆角更大 */
+.event-block {
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--category-color), color-mix(in srgb, var(--category-color) 86%, #000));
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(24, 30, 48, 0.12);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+}
+
+.event-block:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 2px 8px rgba(24, 30, 48, 0.18);
+}
+
+.event-block__title {
+  font-weight: 600;
+  color: #fff;
+}
+
+.event-block__meta {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.event-block.is-done {
+  opacity: 0.55;
+}
+
+.event-block.is-done .event-block__title {
+  text-decoration: line-through;
+}
+
+.event-block.is-dragging {
+  opacity: 0.9;
+  box-shadow: 0 6px 18px rgba(24, 30, 48, 0.24);
+  z-index: 10;
+}
+
+/* 拉伸手柄只在编辑态出现，做成一条淡淡的横杠 */
+.event-block__resize {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 3px;
+  margin: 0 6px 2px;
+  cursor: ns-resize;
+}
+
+/* 全天云片：更接近 iOS 的胶囊 */
+.allday-chip {
+  height: 22px;
+  border-left: none;
+  border-radius: 6px;
+  background: var(--category-soft);
+  color: var(--category-deep, var(--color-text));
+  font-weight: 500;
+}
+
+/* 月视图：去掉格子边框，今天用红圈 */
+.month-cell {
+  border-right: none;
+  border-bottom: 1px solid #f2f3f7;
+}
+
+.month-cell.is-today .month-cell__date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: #fff;
+  font-weight: 600;
+}
+
+.month-cell.is-outside {
+  background: #fbfbfd;
+}
+
+/* 月视图里的小条目：实色小条 */
+.month-item {
+  border-left: 3px solid var(--category-color);
+  background: var(--category-soft);
+  border-radius: 4px;
+}
+
+/* 日视图：现在时刻的红线更细更克制 */
+.day-view__now {
+  height: 2px;
+  background: var(--color-danger);
+}
+
+.day-view__badge {
+  background: var(--color-danger);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  padding: 1px 8px;
+  font-size: var(--fs-tiny);
+}

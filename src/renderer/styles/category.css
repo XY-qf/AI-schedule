@@ -1,0 +1,174 @@
+/* ---------- 分类页（课外活动 / 个人生活） ---------- */
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-4);
+}
+
+.category-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.category-row:hover {
+  background: var(--color-bg);
+}
+
+.category-row.is-done .category-row__title {
+  text-decoration: line-through;
+  color: var(--color-text-faint);
+}
+
+.category-row__day {
+  flex: 0 0 96px;
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+}
+
+.category-row__time {
+  flex: 0 0 96px;
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+}
+
+.category-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.category-row__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--category-color);
+  flex: 0 0 auto;
+}
+
+.category-row__title {
+  font-size: var(--fs-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-row__meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+.category-row__done {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-course);
+  cursor: pointer;
+}
+
+.category-list__past-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---------- 待办页 ---------- */
+.todo-group {
+  margin-bottom: var(--space-4);
+}
+
+.todo-group__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.todo-group__count {
+  color: var(--color-text-faint);
+  font-weight: 400;
+}
+
+.todo-group--overdue .todo-group__title {
+  color: var(--color-danger);
+}
+
+.todo-group--today .todo-group__title {
+  color: #1d4ed8;
+}
+
+.todo-group__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.todo-row:hover {
+  background: var(--color-bg);
+}
+
+.todo-row.is-done .todo-row__title {
+  text-decoration: line-through;
+  color: var(--color-text-faint);
+}
+
+.todo-row__done {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-todo);
+  cursor: pointer;
+}
+
+.todo-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.todo-row__due {
+  flex: 0 0 150px;
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+}
+
+.todo-row__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-row__category {
+  font-size: 11px;
+  color: var(--color-text-faint);
+}

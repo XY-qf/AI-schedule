@@ -1,0 +1,68 @@
+/* ---------- 重要事项倒计时（反馈第二版「后续功能」第 3 条） ---------- */
+.countdown-strip {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  overflow-x: auto;
+  flex: 0 0 auto;
+}
+
+.countdown-card {
+  flex: 1 1 0;
+  min-width: 180px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'title when'
+    'value value';
+  gap: 2px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--category-color, var(--color-course));
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.countdown-card:hover {
+  box-shadow: var(--shadow-hairline);
+  transform: translateY(-1px);
+}
+
+.countdown-card__title {
+  grid-area: title;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.countdown-card__when {
+  grid-area: when;
+  font-size: var(--fs-tiny);
+  color: var(--color-text-faint);
+  white-space: nowrap;
+}
+
+.countdown-card__value {
+  grid-area: value;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--category-color, var(--color-course));
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-card.is-expired .countdown-card__value {
+  color: var(--color-danger);
+}
+
+/* 倒计时卡片上方的分隔线在小屏时可以横向滚动 */
+.countdown-strip::-webkit-scrollbar {
+  height: 6px;
+}

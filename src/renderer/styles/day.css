@@ -1,0 +1,116 @@
+/* ---------- 日视图 ---------- */
+.day-view {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-surface);
+}
+
+.day-view__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.day-view__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+.day-view__date {
+  font-size: var(--fs-section-title);
+  font-weight: 600;
+}
+
+.day-view__badge {
+  font-size: 11px;
+  color: #1d4ed8;
+  background: var(--color-course-soft);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.day-view__body {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.day-view__axis {
+  border-right: 1px solid var(--color-border);
+}
+
+.day-view__col {
+  position: relative;
+}
+
+.day-view__now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--color-danger);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.day-view__now::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+}
+
+.day-panel {
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  overflow: auto;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.day-panel__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.day-panel__title {
+  margin: 0;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.day-panel__list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: var(--fs-meta);
+  line-height: 1.8;
+}
+
+.day-panel__empty {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--color-text-faint);
+}
+
+.day-panel__hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-faint);
+}

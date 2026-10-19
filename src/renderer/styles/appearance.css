@@ -1,0 +1,317 @@
+/* ---------- 外观升级：统一的表面、导航、工具栏、按钮与表单观感 ---------- */
+
+::selection {
+  background: rgba(59, 110, 240, 0.18);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-color: var(--color-course);
+}
+
+/* 细滚动条，避免默认滚动条打断视觉 */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #d7dbe6;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--radius-pill);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #bfc5d4;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- 左侧导航 ---------- */
+.app-nav {
+  box-shadow: 1px 0 0 var(--color-border);
+  border-right: none;
+  padding: var(--space-3) 0;
+  gap: var(--space-2);
+}
+
+.nav-list {
+  gap: 3px;
+  padding: 0 10px;
+}
+
+.nav-item {
+  position: relative;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.nav-item:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.nav-item.is-active {
+  background: var(--color-course-soft);
+  color: var(--color-course-deep);
+  font-weight: 600;
+}
+
+.nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-course);
+}
+
+.nav-divider {
+  margin: var(--space-2) 12px;
+}
+
+/* ---------- 工具栏 ---------- */
+.app-toolbar {
+  gap: var(--space-3);
+  padding: 0 var(--space-5);
+  border-bottom: none;
+  box-shadow: var(--shadow-hairline);
+  z-index: 2;
+}
+
+.toolbar-title {
+  font-size: var(--fs-page-title);
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.toolbar-group {
+  gap: 4px;
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border-color: var(--color-border-strong);
+  font-weight: 500;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+  border-color: #c3c9d8;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn--primary {
+  background: linear-gradient(180deg, #4a79f5, var(--color-course));
+  border-color: var(--color-course);
+  box-shadow: 0 2px 8px rgba(59, 110, 240, 0.28);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #5b87f7, #3568ec);
+  border-color: #3568ec;
+}
+
+.btn--danger {
+  background: linear-gradient(180deg, #ea5a5f, var(--color-danger));
+  border-color: var(--color-danger);
+  box-shadow: 0 2px 8px rgba(229, 72, 77, 0.24);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ec6a6f, #d93a3f);
+}
+
+.btn--ghost {
+  border-color: transparent;
+  color: var(--color-text-muted);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+  border-color: transparent;
+  color: var(--color-text);
+}
+
+.btn--sm {
+  height: 28px;
+  padding: 0 10px;
+}
+
+.btn--icon {
+  width: 34px;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.btn--sm.btn--icon {
+  width: 28px;
+}
+
+/* ---------- 分段控件（视图切换） ---------- */
+.segmented {
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  overflow: visible;
+}
+
+.segmented__item {
+  height: 26px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.segmented__item:hover {
+  color: var(--color-text);
+}
+
+.segmented__item.is-active {
+  background: var(--color-surface);
+  color: var(--color-course-deep);
+  box-shadow: var(--shadow-hairline);
+}
+
+/* ---------- 表单 ---------- */
+.field__input,
+.field__select {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border-color: var(--color-border-strong);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.field__input:hover,
+.field__select:hover {
+  border-color: #c3c9d8;
+}
+
+.field__label {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+/* ---------- 弹窗 ---------- */
+.dialog {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-dialog);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.dialog__header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dialog__title {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.dialog__body {
+  padding: var(--space-4) var(--space-5);
+}
+
+.dialog__footer {
+  padding: var(--space-3) var(--space-5);
+}
+
+/* ---------- 页面头 ---------- */
+.page__header {
+  padding: 10px var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-3);
+}
+
+.page__title {
+  font-size: var(--fs-page-title);
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.page__subtitle {
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 详情面板 ---------- */
+.detail-panel {
+  box-shadow: -1px 0 0 var(--color-border);
+  border-left: none;
+}
+
+.detail-panel__header {
+  padding: var(--space-4);
+}
+
+.detail-panel__title {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.detail-row__value {
+  line-height: var(--lh-body);
+}
+
+/* ---------- 状态栏 ---------- */
+.app-status {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 空状态 ---------- */
+.empty-state__title {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.empty-state {
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  line-height: var(--lh-body);
+}
+
+/* ---------- 提示条 ---------- */
+.toast {
+  background: #1a1f2b;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-panel);
+  padding: 11px 16px;
+}
+
+/* ---------- 编辑态提示 ---------- */
+.app-main.is-editing {
+  outline: 2px solid rgba(59, 110, 240, 0.35);
+  outline-offset: -2px;
+}
