@@ -37,6 +37,8 @@ export interface Occurrence {
   originalDate: string
   startAt: string | null
   endAt: string | null
+  /** 待办类（只有截止时间）的截止时刻 */
+  dueAt: string | null
   title: string | null
   location: string | null
   people: string | null
@@ -79,15 +81,17 @@ export function expandOccurrences(
   rangeStart: string,
   rangeEnd: string,
 ): Occurrence[] {
-  if (!master.startAt) {
-    // 待办类不展开重复（本版不支持重复待办）
-    return []
-  }
-  const startDate = master.startAt.slice(0, 10)
-  const startTime = master.kind === 'allDay' ? null : master.startAt.slice(11, 16)
-  const endTime = master.kind === 'allDay' ? null : (master.endAt?.slice(11, 16) ?? null)
+  // 待办（只有截止时间）没有 startAt，用截止日期当锚点，否则勾了重复就整个消失
+  const isTodo = master.kind === 'todo'
+  const anchorAt = master.startAt ?? master.dueAt
+  if (!anchorAt) return []
+
+  const startDate = anchorAt.slice(0, 10)
+  const startTime = isTodo || master.kind === 'allDay' ? null : anchorAt.slice(11, 16)
+  const endTime = isTodo || master.kind === 'allDay' ? null : (master.endAt?.slice(11, 16) ?? null)
   const endOffset = dayOffset(master.startAt, master.endAt)
   const isAllDay = master.kind === 'allDay'
+  const dueTime = isTodo && anchorAt.includes('T') ? anchorAt.slice(11, 16) : null
 
   const byDay = new Map<string, SeriesException>()
   for (const exception of exceptions) {
@@ -189,8 +193,9 @@ export function expandOccurrences(
         out.push({
           seriesId: master.id,
           originalDate: date,
-          startAt: exception.startAt ?? (isAllDay ? date : shiftDateTime(date, startTime)),
-          endAt: exception.endAt ?? (isAllDay ? date : shiftDateTime(date, endTime, endOffset)),
+          startAt: isTodo ? null : (exception.startAt ?? (isAllDay ? date : shiftDateTime(date, startTime))),
+          endAt: isTodo ? null : (exception.endAt ?? (isAllDay ? date : shiftDateTime(date, endTime, endOffset))),
+          dueAt: isTodo ? (dueTime ? `${date}T${dueTime}` : date) : null,
           title: exception.title ?? master.title,
           location: exception.location ?? master.location,
           people: exception.people ?? master.people,
@@ -204,8 +209,9 @@ export function expandOccurrences(
       out.push({
         seriesId: master.id,
         originalDate: date,
-        startAt: isAllDay ? date : shiftDateTime(date, startTime),
-        endAt: isAllDay ? date : shiftDateTime(date, endTime, endOffset),
+        startAt: isTodo ? null : (isAllDay ? date : shiftDateTime(date, startTime)),
+        endAt: isTodo ? null : (isAllDay ? date : shiftDateTime(date, endTime, endOffset)),
+        dueAt: isTodo ? (dueTime ? `${date}T${dueTime}` : date) : null,
         title: master.title,
         location: master.location,
         people: master.people,
@@ -216,7 +222,7 @@ export function expandOccurrences(
       })
     }
     return out.filter((item) => {
-      const day = (item.startAt ?? item.originalDate).slice(0, 10)
+      const day = (item.startAt ?? item.dueAt ?? item.originalDate).slice(0, 10)
       return day >= rangeStart && day <= rangeEnd
     })
   }

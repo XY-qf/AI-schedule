@@ -277,9 +277,28 @@ describe('重复规则 · 区间与形态', () => {
     expect(list[0].startAt).not.toContain('T')
   })
 
-  it('没有开始时间的条目不展开', () => {
+  it('待办（只有截止）改为按截止日期展开', () => {
+    const list = expandOccurrences(
+      master({ kind: 'todo', startAt: null, endAt: null, dueAt: '2026-03-04' }),
+      rule({ freq: 'daily' }),
+      [],
+      '2026-03-01',
+      '2026-03-31',
+    )
+    // 母事件从 3 月 4 日开始，到 3 月 31 日共 28 次
+    expect(list.length).toBe(28)
+    expect(list[0].dueAt).toBe('2026-03-04')
+  })
+
+  it('既没有开始也没有截止的条目不展开', () => {
     expect(
-      expandOccurrences(master({ kind: 'todo', startAt: null, endAt: null, dueAt: '2026-03-04' }), rule({ freq: 'daily' }), [], '2026-03-01', '2026-03-31'),
+      expandOccurrences(
+        master({ kind: 'todo', startAt: null, endAt: null, dueAt: null }),
+        rule({ freq: 'daily' }),
+        [],
+        '2026-03-01',
+        '2026-03-31',
+      ),
     ).toEqual([])
   })
 })

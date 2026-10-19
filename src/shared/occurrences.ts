@@ -12,6 +12,7 @@ export function occurrenceToEvent(master: EventItem, occurrence: Occurrence): Ev
     title: occurrence.title ?? master.title,
     startAt: occurrence.startAt,
     endAt: occurrence.endAt,
+    dueAt: occurrence.dueAt ?? master.dueAt,
     location: occurrence.location,
     people: occurrence.people,
     note: occurrence.note,
