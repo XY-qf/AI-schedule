@@ -40,6 +40,7 @@ describe('实例标识', () => {
       originalDate: '2026-03-11',
       startAt: '2026-03-11T19:30',
       endAt: '2026-03-11T21:00',
+      dueAt: null,
       title: null,
       location: null,
       people: null,

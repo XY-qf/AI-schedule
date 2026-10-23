@@ -1293,12 +1293,12 @@ export function App({
           />
         ) : page === 'todo' ? (
           <TodoPage
-            events={events.filter((event) => event.kind === 'todo')}
+            events={(allEvents as EventItem[]).filter((event) => event.kind === 'todo')}
             today={now}
             onCreate={() => openCreate({ kind: 'todo', category: 'course' })}
             onSelect={(id) => setSelectedId(id)}
             onToggleDone={(id) => {
-              const target = events.find((event) => event.id === id)
+              const target = (allEvents as EventItem[]).find((event) => event.id === id)
               if (target) void handleToggleDone(target)
             }}
           />
