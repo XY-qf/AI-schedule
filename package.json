@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "AI 日程（个人版）—— 本地存储的 Windows 桌面日程程序",
-  "main": "dist/main/main.js",
+  "main": "dist/main/entry.js",
   "author": "personal",
   "license": "UNLICENSED",
   "scripts": {

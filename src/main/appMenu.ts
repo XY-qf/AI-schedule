@@ -10,6 +10,8 @@ export interface MenuActions {
   onAbout: () => void
   onReload: () => void
   onToggleDevTools: () => void
+  /** 忘掉记住的显卡兼容级别、重新体检一次（会重启） */
+  onResetGpuCompat: () => void
 }
 
 /**
@@ -72,7 +74,12 @@ export function buildMenuTemplate(actions: MenuActions): MenuItemConstructorOpti
     },
     {
       label: '帮助',
-      submenu: [{ label: '关于 AI日程', click: actions.onAbout }],
+      submenu: [
+        // 显卡兼容级别是记死的，换了显示器/驱动想重新试硬件加速时用这个
+        { label: '重新检测显卡（会重启）', click: actions.onResetGpuCompat },
+        { type: 'separator' },
+        { label: '关于 AI日程', click: actions.onAbout },
+      ],
     },
   ]
 }

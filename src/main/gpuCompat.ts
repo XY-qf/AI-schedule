@@ -32,7 +32,7 @@ export interface GpuCompatState {
 
 export interface GpuCompatDecision {
   mode: GpuCompatMode
-  reason: 'argv' | 'env' | 'state' | 'crash' | null
+  reason: 'argv' | 'env' | 'crash' | 'state' | 'probe' | null
 }
 
 export interface GpuCompatInput {
@@ -63,17 +63,20 @@ export function decideGpuCompat(input: GpuCompatInput): GpuCompatDecision {
   if (isGpuCompatMode(fromEnv)) return { mode: fromEnv, reason: 'env' }
   if ((env.AI_SCHEDULE_GPU_COMPAT ?? '') === '1') return { mode: 'gpu-sandbox', reason: 'env' }
 
-  if (state && state.mode !== 'off' && (state.retryAt === null || now < state.retryAt)) {
-    return { mode: state.mode, reason: 'state' }
-  }
-
-  // 上次用某个模式启动过、但没走完 → 说明那个模式没救回来，降一级
+  // 上次「没走完」＝那一级崩了（或被强杀），比记下来的状态更可信：
+  // 优先级必须高于 state，否则记录里是 off、显卡却坏了，就会一直崩在同一个级别上。
   if (lastPendingMode) {
     return { mode: nextGpuCompatMode(lastPendingMode), reason: 'crash' }
   }
 
+  // 记住过的级别（mode 也可能是 off：说明上次正常 GPU 是好的）
+  if (state && (state.retryAt === null || now < state.retryAt)) {
+    return { mode: state.mode, reason: 'state' }
+  }
+
   return { mode: 'off', reason: null }
 }
+
 
 /* ------------------------------------------------------------------ */
 /* 状态文件                                                           */

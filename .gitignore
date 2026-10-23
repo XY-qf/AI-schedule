@@ -22,3 +22,6 @@ probe-electron/
 Thumbs.db
 .vscode/
 .idea/
+
+# ---------- ÍË³öÃ°ÑÌ²âÊÔ²úÎï ----------
+.quit-smoke/

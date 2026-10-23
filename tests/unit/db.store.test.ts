@@ -145,8 +145,18 @@ describe('异常处理', () => {
   it('关闭后继续使用会报错', async () => {
     const dir = freshDir('closed')
     const store = await DataStore.open({ filePath: path.join(dir, 'schedule.db'), wasmPath })
+    expect(store.isOpen).toBe(true)
     store.close()
+    expect(store.isOpen).toBe(false)
     expect(() => store.all('SELECT 1')).toThrow('已关闭')
+    // 重复关闭不报错：退出流程里 before-quit / will-quit 可能各碰一次
+    let secondCloseThrew = false
+    try {
+      store.close()
+    } catch {
+      secondCloseThrew = true
+    }
+    expect(secondCloseThrew).toBe(false)
   })
 })
 
