@@ -13,6 +13,7 @@ const ACTIONS: MenuActions = {
   onAbout: noop,
   onReload: noop,
   onToggleDevTools: noop,
+  onResetGpuCompat: noop,
 }
 
 describe('应用菜单（反馈 #2：菜单栏改为中文）', () => {
@@ -49,5 +50,13 @@ describe('应用菜单（反馈 #2：菜单栏改为中文）', () => {
     const items = (file?.submenu ?? []) as Array<{ label?: string; accelerator?: string }>
     const item = items.find((entry) => entry.label === '新建日程')
     expect(item?.accelerator).toBe('CmdOrCtrl+N')
+  })
+
+  it('帮助菜单里有「重新检测显卡」的逃生口', () => {
+    const help = template.find((item) => item.label === '帮助')
+    const items = (help?.submenu ?? []) as Array<{ label?: string; click?: () => void }>
+    const item = items.find((entry) => (entry.label ?? '').includes('重新检测显卡'))
+    expect(item).toBeTruthy()
+    expect(typeof item?.click).toBe('function')
   })
 })

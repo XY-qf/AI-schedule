@@ -66,6 +66,19 @@ describe('GPU 兼容模式判定', () => {
     })
     expect(decideGpuCompat({ ...base, env: { AI_SCHEDULE_GPU_COMPAT: '1' } }).mode).toBe('gpu-sandbox')
   })
+
+  it('记住的 off 也算已知状态：下次不必重新体检', () => {
+    const state = { mode: 'off' as const, retryAt: null }
+    expect(decideGpuCompat({ ...base, state })).toEqual({ mode: 'off', reason: 'state' })
+  })
+
+  it('崩溃标记优先于记住的状态：否则会一直崩在同一个级别上', () => {
+    const state = { mode: 'off' as const, retryAt: null }
+    expect(decideGpuCompat({ ...base, state, lastPendingMode: 'off' })).toEqual({
+      mode: 'gpu-sandbox',
+      reason: 'crash',
+    })
+  })
 })
 
 describe('每一级追加的开关', () => {

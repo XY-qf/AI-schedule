@@ -65,6 +65,11 @@ export class DataStore {
     return LATEST_SCHEMA_VERSION
   }
 
+  /** 关闭之后不要再读写：退出流程里调用方用它来决定是否还值得保存。 */
+  get isOpen(): boolean {
+    return !this.closed
+  }
+
   private assertOpen(): void {
     if (this.closed) throw new Error('数据仓库已关闭')
   }

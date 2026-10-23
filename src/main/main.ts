@@ -20,7 +20,6 @@ import { buildStatusPayload, unavailableStatus } from './status'
 import { DataDirectoryError, ensureDataDir, resolveAppPaths, type AppPaths } from './paths'
 import { resolveRendererAsset } from './rendererProtocol'
 import {
-  GPU_COMPAT_RETRY_MS,
   clearBootPending,
   clearGpuCompatState,
   decideGpuCompat,
@@ -29,6 +28,7 @@ import {
   readGpuCompatState,
   writeGpuCompatState,
 } from './gpuCompat'
+import { probeGpuLadder } from './gpuProbe'
 import { gpuCompatSwitches } from '../shared/gpuCompat'
 import { listModels, streamChat } from './aiClient'
 import type { AiChatPayload, AiModelsPayload } from '../shared/aiChat'
@@ -83,18 +83,35 @@ const USE_FILE_PROTOCOL = process.env.AI_SCHEDULE_FILE_PROTOCOL === '1'
 
 // ---------------------------------------------------------------------------
 // GPU 兼容模式（分级）：某些机器上 Chromium 的 GPU 子进程起不来（error_code=18），
-// 程序会直接崩在启动阶段。上一次哪一级没走完，这次就往下再降一级：
+// 程序会直接崩在启动阶段。上次哪一级没走完就往下再降一级：
 //   gpu-sandbox（保留硬件加速）→ in-process → software（保证能开）。
+//
+// 后来又加了两条，因为这个崩溃对用户来说太痛（必崩、JS 捕获不到）：
+//   1. 开窗前先用同样开关起个探针进程实测（gpuProbe.ts），选第一级真能起来的，
+//      避免「第一次启动必然崩一下」；
+//   2. 启动成功后把这一级永久记住（retryAt=null），不再 7 天后又拿坏显卡试一次。
 // ---------------------------------------------------------------------------
 const gpuCompatFile = path.join(app.getPath('userData'), 'gpu-compat.json')
 const bootPendingFile = path.join(app.getPath('userData'), 'boot.pending')
-const gpuDecision = decideGpuCompat({
+let gpuDecision = decideGpuCompat({
   argv: process.argv,
   env: process.env as Record<string, string | undefined>,
   lastPendingMode: readBootPending(bootPendingFile),
   state: readGpuCompatState(gpuCompatFile),
   now: Date.now(),
 })
+
+// 只知道「没有记录」或「上次崩了」时才值得花一两秒体检；已知可用就直接启动。
+if (
+  !SELFTEST &&
+  process.env.AI_SCHEDULE_NO_GPU_PROBE !== '1' &&
+  (gpuDecision.reason === null || gpuDecision.reason === 'crash')
+) {
+  const probed = probeGpuLadder()
+  console.warn(`[gpu-compat] probe=${probed ?? 'all-failed'} (was ${gpuDecision.mode}/${gpuDecision.reason ?? 'unknown'})`)
+  if (probed) gpuDecision = { mode: probed, reason: 'probe' }
+}
+
 for (const flag of gpuCompatSwitches(gpuDecision.mode)) {
   app.commandLine.appendSwitch(flag)
 }
@@ -106,18 +123,26 @@ if (gpuDecision.mode !== 'off') {
 }
 markBootPending(bootPendingFile, gpuDecision.mode, Date.now())
 
-/** 界面加载成功后：清掉"启动中"标记，并记下这次是不是靠兼容模式救回来的。 */
+/**
+ * 界面加载成功 = 这一级确实能用：永久记住它，下次直接用。
+ *
+ * 之前只有在「崩过一次」时才记、而且 7 天后会重试坏显卡——结果就是
+ * 每隔一周用户会再看到一次同样的崩溃；手动加 `--in-process-gpu` 启动一次
+ * 还会把崩溃记录洗掉，于是下次又从 off 崩起。现在无论怎么起来（自动探针、
+ * 命令行、环境变量）都记下来，只有菜单里的「重新检测显卡」会清掉。
+ */
 function markBootCompleted(): void {
   clearBootPending(bootPendingFile)
-  if (gpuDecision.reason === 'crash') {
-    // 上一次崩了、这一级救回来了：记住它，7 天后再试一次正常 GPU
-    writeGpuCompatState(gpuCompatFile, {
-      mode: gpuDecision.mode,
-      retryAt: Date.now() + GPU_COMPAT_RETRY_MS,
-    })
-  } else if (gpuDecision.mode === 'off') {
-    clearGpuCompatState(gpuCompatFile)
-  }
+  writeGpuCompatState(gpuCompatFile, { mode: gpuDecision.mode, retryAt: null })
+}
+
+/** 菜单里的「重新检测显卡」：忘掉记住的级别并重启，重新体检一次。 */
+function resetGpuCompatAndRelaunch(): void {
+  clearGpuCompatState(gpuCompatFile)
+  clearBootPending(bootPendingFile)
+  isQuitting = true
+  app.relaunch()
+  app.quit()
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -193,6 +218,31 @@ if (SELFTEST) {
     diag('rejection', { message: String(reason) })
   })
 }
+
+/**
+ * 主进程兜底：把未捕获异常写进日志，而不是弹 Electron 默认的
+ * 「A JavaScript error occurred in the main process」大白框。
+ *
+ * 本程序每次写入都即时落盘，单次异常不会丢数据；记录后继续运行，
+ * 让用户仍能正常操作/退出。日志在 %APPDATA%\AI-Schedule\main-error.log。
+ */
+function logMainError(kind: string, error: unknown): void {
+  const detail =
+    error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error)
+  console.error(`[main] ${kind}`, error)
+  try {
+    fs.appendFileSync(
+      path.join(app.getPath('userData'), 'main-error.log'),
+      `[${new Date().toISOString()}] ${kind}\n${detail}\n\n`,
+      'utf8',
+    )
+  } catch {
+    /* 日志写不出去也不能再抛 */
+  }
+}
+
+process.on('uncaughtException', (error) => logMainError('uncaughtException', error))
+process.on('unhandledRejection', (reason) => logMainError('unhandledRejection', reason))
 
 /** 运行时状态；数据目录不可用时 store 为 null，界面只显示错误提示。 */
 interface RuntimeState {
@@ -347,8 +397,17 @@ function createMainWindow(state: RuntimeState): BrowserWindow {
     const fallbackToFile = (): void => {
       if (fellBack) return
       fellBack = true
-      console.warn('自定义协议加载失败，退回 file:// 加载界面')
-      void win.loadFile(path.join(__dirname, '../renderer/index.html'), { query: fileQuery })
+      // 窗口/页面已经在退出流程里销毁时不能再 loadFile：同步会抛
+      // 「Object has been destroyed」，变成一个无人处理的 Promise 拒绝
+      try {
+        if (win.isDestroyed() || win.webContents.isDestroyed()) return
+        console.warn('自定义协议加载失败，退回 file:// 加载界面')
+        void win
+          .loadFile(path.join(__dirname, '../renderer/index.html'), { query: fileQuery })
+          .catch((error) => console.warn('退回 file:// 也失败了', error))
+      } catch (error) {
+        console.warn('退回 file:// 也失败了', error)
+      }
     }
     win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _url, isMainFrame) => {
       if (!isMainFrame) return
@@ -387,16 +446,23 @@ function createMainWindow(state: RuntimeState): BrowserWindow {
   }
 
   const persist = (): void => {
-    if (!runtime?.settings) return
-    const normal = win.getNormalBounds()
-    saveWindowState(runtime.settings, {
-      ...runtime.windowState,
-      x: normal.x,
-      y: normal.y,
-      width: normal.width,
-      height: normal.height,
-      maximized: win.isMaximized(),
-    })
+    // 退出流程里数据仓库可能已经关了（重复 close、强制退出等）。
+    // 这时保存窗口状态必然失败，但绝不能让它把异常抛到主进程，
+    // 否则 Electron 会弹「A JavaScript error occurred in the main process」。
+    if (!runtime?.settings || !runtime.store?.isOpen) return
+    try {
+      const normal = win.getNormalBounds()
+      saveWindowState(runtime.settings, {
+        ...runtime.windowState,
+        x: normal.x,
+        y: normal.y,
+        width: normal.width,
+        height: normal.height,
+        maximized: win.isMaximized(),
+      })
+    } catch (error) {
+      console.warn('保存窗口状态失败（不影响退出）', error)
+    }
   }
 
   win.on('close', (event) => {
@@ -536,7 +602,8 @@ function registerIpc(): void {
   ipcMain.handle('backup:restore', async (_event, fileName: string) => {
     if (!backupService) throw new Error('备份服务尚未就绪')
     await backupService.restore(fileName)
-    // 恢复后重启，保证内存里不再有旧数据
+    // 恢复后重启，保证内存里不再有旧数据；app.exit 不走 will-quit，这里手动关库
+    runtime?.store?.close()
     app.relaunch()
     app.exit(0)
   })
@@ -658,6 +725,8 @@ function registerAiIpc(): void {
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
+/** 退出时的备份只做一次：before-quit 可能被触发多轮（window-all-closed 里再 quit）。 */
+let quitBackupDone = false
 
 if (!app.requestSingleInstanceLock()) {
   app.quit()
@@ -764,8 +833,32 @@ async function runSelfTest(win: BrowserWindow): Promise<void> {
   })
 }
 
+/**
+ * 退出流程：
+ *   before-quit（置 isQuitting、做最后一次备份）→ 窗口 close（保存窗口状态）
+ *   → will-quit（关掉数据仓库）→ quit
+ *
+ * 关键点：数据仓库必须在 will-quit 关，不能在 before-quit 关。
+ * 因为 before-quit 早于窗口的 close 事件，早关掉 store 的话，
+ * close 里保存窗口状态就会抛「数据仓库已关闭」，并以
+ * 「A JavaScript error occurred in the main process」的弹窗崩在用户面前
+ * （从托盘/任务栏「退出」时必现）。
+ */
 app.on('before-quit', () => {
   isQuitting = true
+  if (quitBackupDone) return
+  quitBackupDone = true
+  // 退出前再备份一份；备份失败不能阻塞退出，数据本身已经逐次落盘。
+  try {
+    if (backupService && runtime?.store) backupService.create(new Date(), 'quit')
+  } catch (error) {
+    console.warn('退出备份失败', error)
+  }
+})
+
+/** 窗口都关完、窗口状态也保存过了，这时才关闭数据仓库。 */
+app.on('will-quit', () => {
+  runtime?.store?.close()
 })
 
 /** 托盘：关窗后还能从托盘重新打开或真正退出。 */
@@ -834,23 +927,15 @@ function setupMenu(win: BrowserWindow): void {
         },
         onReload: () => win.reload(),
         onToggleDevTools: () => win.webContents.toggleDevTools(),
+        onResetGpuCompat: resetGpuCompatAndRelaunch,
       }),
     ),
   )
 }
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
-
-app.on('before-quit', () => {
-  // 退出前再备份一份；备份失败不能阻塞退出，数据本身已经逐次落盘。
-  try {
-    if (backupService && runtime?.store) backupService.create(new Date(), 'quit')
-  } catch (error) {
-    console.warn('退出备份失败', error)
-  }
-  runtime?.store?.close()
+  // 已经在退出流程里就不用再 quit 一次，避免 before-quit 重复跑（重复备份/重复关库）
+  if (process.platform !== 'darwin' && !isQuitting) app.quit()
 })
 
 export type { PreloadApi }
